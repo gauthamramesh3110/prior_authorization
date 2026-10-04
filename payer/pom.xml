@@ -5,11 +5,9 @@
     <parent>
         <groupId>com.lifeforce</groupId>
         <artifactId>prior_authorization</artifactId>
-        <version>1.0-SNAPSHOT</version>
-        <relativePath/>
+        <version>0.0.1-SNAPSHOT</version>
     </parent>
     <artifactId>payer</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
     <name>payer</name>
     <description>payer</description>
     <properties>
