@@ -1,0 +1,19 @@
+package com.lifeforce.payer.request.dto;
+
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
+
+import java.time.Instant;
+import java.util.UUID;
+
+public record HttpAuthorizationRequest(
+    @Valid @NotNull UUID requestId,
+    @Valid @NotNull Instant submittedAt,
+    @Valid @NotNull UUID patientId,
+    @Valid @NotNull UUID providerId,
+    @Valid UUID organizationId,
+    @Valid @NotNull UUID planId,
+    @Valid @NotNull RequestedService requestedService,
+    @Valid ClinicalJustification clinicalJustification
+) {}
+
