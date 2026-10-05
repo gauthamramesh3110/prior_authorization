@@ -1,6 +1,6 @@
 package com.lifeforce.payer.plan.repository;
 
-import com.lifeforce.payer.plan.domain.Plan;
+import com.lifeforce.payer.plan.domain.plan.Plan;
 import org.springframework.data.repository.Repository;
 
 import java.util.Optional;

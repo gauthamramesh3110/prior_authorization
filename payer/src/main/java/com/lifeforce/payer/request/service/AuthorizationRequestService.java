@@ -1,8 +1,8 @@
 package com.lifeforce.payer.request.service;
 
-import com.lifeforce.payer.plan.domain.BenefitStatus;
-import com.lifeforce.payer.plan.domain.Plan;
-import com.lifeforce.payer.plan.domain.PlanService;
+import com.lifeforce.payer.plan.domain.plan.BenefitStatus;
+import com.lifeforce.payer.plan.domain.plan.Plan;
+import com.lifeforce.payer.plan.domain.plan.PlanService;
 import com.lifeforce.payer.reference.domain.NetworkParticipation;
 import com.lifeforce.payer.reference.repository.NetworkParticipationRepository;
 import com.lifeforce.payer.reference.repository.OrganizationRepository;
@@ -17,6 +17,8 @@ import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.request.repository.CoverageRepository;
 import com.lifeforce.payer.plan.repository.PlanRepository;
 import com.lifeforce.payer.review.domain.Review;
+import com.lifeforce.payer.review.domain.ReviewHistory;
+import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
@@ -32,16 +34,18 @@ public class AuthorizationRequestService {
     private final CoverageRepository coverageRepository;
     private final PlanRepository planRepository;
     private final ReviewRepository reviewRepository;
+    private final ReviewHistoryRepository reviewHistoryRepository;
     private final NetworkParticipationRepository networkParticipationRepository;
     private final OrganizationRepository organizationRepository;
     private final PatientRepository patientRepository;
     private final ProviderRepository providerRepository;
     private final Clock clock;
-    public AuthorizationRequestService(AuthorizationRequestRepository authorizationRequestRepository, CoverageRepository coverageRepository, PlanRepository planRepository, ReviewRepository reviewRepository, NetworkParticipationRepository networkParticipationRepository, OrganizationRepository organizationRepository, PatientRepository patientRepository, ProviderRepository providerRepository, Clock clock) {
+    public AuthorizationRequestService(AuthorizationRequestRepository authorizationRequestRepository, CoverageRepository coverageRepository, PlanRepository planRepository, ReviewRepository reviewRepository, ReviewHistoryRepository reviewHistoryRepository, NetworkParticipationRepository networkParticipationRepository, OrganizationRepository organizationRepository, PatientRepository patientRepository, ProviderRepository providerRepository, Clock clock) {
         this.authorizationRequestRepository = authorizationRequestRepository;
         this.coverageRepository = coverageRepository;
         this.planRepository = planRepository;
         this.reviewRepository = reviewRepository;
+        this.reviewHistoryRepository = reviewHistoryRepository;
         this.networkParticipationRepository = networkParticipationRepository;
         this.organizationRepository = organizationRepository;
         this.patientRepository = patientRepository;
@@ -109,14 +113,14 @@ public class AuthorizationRequestService {
             return;
         }
         AuthorizationRequest request = authorizationRequest.get();
-        if (!Status.SUBMITTED.equals(request.getStatus())) {
+        if (!RequestStatus.SUBMITTED.equals(request.getRequestStatus())) {
             return;
         }
 
         // CHECK PATIENT'S COVERAGE
         List<Coverage> coverages = coverageRepository.findByPatientIdAndPlanId(request.getPatientId(), request.getPlanId());
         if (coverages.isEmpty()) {
-            request.updateStatus(Status.REJECTED, StatusReason.NOT_COVERED);
+            request.updateStatus(RequestStatus.REJECTED, RequestStatusReason.NOT_COVERED);
             authorizationRequestRepository.save(request);
             return;
         }
@@ -132,7 +136,7 @@ public class AuthorizationRequestService {
         ).findFirst().orElse(null);
 
         if (currentCoverage == null) {
-            request.updateStatus(Status.REJECTED, StatusReason.COVERAGE_INACTIVE);
+            request.updateStatus(RequestStatus.REJECTED, RequestStatusReason.COVERAGE_INACTIVE);
             authorizationRequestRepository.save(request);
             return;
         }
@@ -142,10 +146,9 @@ public class AuthorizationRequestService {
         if (plan.isEmpty()) {
             // CREATE MANUAL REVIEW FOR UNCONFIGURED PLAN
             Review review = Review.createNewManualReview(request.getId(), clock);
-            reviewRepository.save(review);
-
-            request.updateStatus(Status.PENDING, StatusReason.MANUAL_REVIEW_REQUIRED);
+            request.updateStatus(RequestStatus.PENDING, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
             authorizationRequestRepository.save(request);
+            saveNewReview(review, request);
             return;
         }
         Plan currentPlan = plan.get();
@@ -161,7 +164,7 @@ public class AuthorizationRequestService {
                 )
         );
         if (!isInNetwork) {
-            request.updateStatus(Status.REJECTED, StatusReason.OUT_OF_NETWORK);
+            request.updateStatus(RequestStatus.REJECTED, RequestStatusReason.OUT_OF_NETWORK);
             authorizationRequestRepository.save(request);
             return;
         }
@@ -172,16 +175,15 @@ public class AuthorizationRequestService {
         ).toList();
         if (matchingServices.isEmpty()) {
             Review review = Review.createNewManualReview(request.getId(), clock);
-            reviewRepository.save(review);
-
-            request.updateStatus(Status.PENDING, StatusReason.MANUAL_REVIEW_REQUIRED);
+            request.updateStatus(RequestStatus.PENDING, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
             authorizationRequestRepository.save(request);
+            saveNewReview(review, request);
             return;
         }
 
         Optional<PlanService> matchingService = matchingServices.stream().filter(planService -> planService.getBenefitStatus().equals(BenefitStatus.COVERED)).findFirst();
         if (matchingService.isEmpty()) {
-            request.updateStatus(Status.REJECTED, StatusReason.SERVICE_EXCLUDED);
+            request.updateStatus(RequestStatus.REJECTED, RequestStatusReason.SERVICE_EXCLUDED);
             authorizationRequestRepository.save(request);
             return;
         }
@@ -189,17 +191,20 @@ public class AuthorizationRequestService {
         // CHECK IF PRIOR AUTH IS REQUIRED
         PlanService currentService = matchingService.get();
         if (!currentService.getPriorAuthorizationRequired()) {
-            request.updateStatus(Status.APPROVED, StatusReason.PRIOR_AUTH_NOT_REQUIRED);
+            request.updateStatus(RequestStatus.APPROVED, RequestStatusReason.PRIOR_AUTH_NOT_REQUIRED);
             authorizationRequestRepository.save(request);
             return;
         }
 
         // CREATE A REVIEW FOR PRIOR AUTH REQUIRED CRITERIA
         Review review = Review.createNewReview(request.getId(), clock);
-        reviewRepository.save(review);
-
-        request.updateStatus(Status.PENDING, StatusReason.PENDING_EVALUATION);
+        request.updateStatus(RequestStatus.PENDING, RequestStatusReason.PENDING_EVALUATION);
         authorizationRequestRepository.save(request);
+        saveNewReview(review, request);
     }
 
+    private void saveNewReview(Review review, AuthorizationRequest request) {
+        reviewRepository.save(review);
+        reviewHistoryRepository.save(ReviewHistory.createReviewCreatedEvent(review, request));
+    }
 }

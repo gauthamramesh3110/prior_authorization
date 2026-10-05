@@ -32,11 +32,11 @@ public class AuthorizationRequest {
 
     @Column(name = "status", nullable = false)
     @Enumerated(EnumType.STRING)
-    Status status;
+    RequestStatus requestStatus;
 
     @Column(name = "status_reason")
     @Enumerated(EnumType.STRING)
-    StatusReason statusReason;
+    RequestStatusReason requestStatusReason;
 
     @Column(name = "requested_service", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
@@ -55,17 +55,17 @@ public class AuthorizationRequest {
         this.providerId = httpAuthorizationRequest.providerId();
         this.organizationId = httpAuthorizationRequest.organizationId();
         this.planId = httpAuthorizationRequest.planId();
-        this.status = Status.SUBMITTED;
-        this.statusReason = null;
+        this.requestStatus = RequestStatus.SUBMITTED;
+        this.requestStatusReason = null;
         this.requestedService = httpAuthorizationRequest.requestedService();
         this.clinicalJustification = httpAuthorizationRequest.clinicalJustification();
         this.submittedAt = httpAuthorizationRequest.submittedAt();
         return this;
     }
 
-    public AuthorizationRequest updateStatus(Status newStatus, StatusReason newStatusReason) {
-        this.status = newStatus;
-        this.statusReason = newStatusReason;
+    public AuthorizationRequest updateStatus(RequestStatus newRequestStatus, RequestStatusReason newRequestStatusReason) {
+        this.requestStatus = newRequestStatus;
+        this.requestStatusReason = newRequestStatusReason;
         return this;
     }
 }

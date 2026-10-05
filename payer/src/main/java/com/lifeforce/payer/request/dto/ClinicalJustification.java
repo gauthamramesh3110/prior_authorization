@@ -14,14 +14,14 @@ public record ClinicalJustification(
         List<@Valid ConditionEvidence> conditions,
         List<@Valid ObservationEvidence> observations
 ) {
-    record ConditionEvidence(
+    public record ConditionEvidence(
         @NotBlank String code,
         String description,
         @NotNull Date startDate,
         Date endDate
     ) {}
 
-    record ObservationEvidence(
+    public record ObservationEvidence(
         @NotBlank String code,
         @NotNull BigDecimal value,
         @NotNull String units,

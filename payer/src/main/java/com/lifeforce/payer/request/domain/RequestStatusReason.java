@@ -1,6 +1,6 @@
 package com.lifeforce.payer.request.domain;
 
-public enum StatusReason {
+public enum RequestStatusReason {
     // PENDING STATUS REASONS
     EVIDENCE_UPDATED,
     AWAITING_EVIDENCE,

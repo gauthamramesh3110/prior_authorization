@@ -1,7 +1,7 @@
 package com.lifeforce.payer.request.scheduler;
 
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
-import com.lifeforce.payer.request.domain.Status;
+import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.request.service.AuthorizationRequestService;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -21,7 +21,7 @@ public class AuthorizationRequestScheduler {
 
     @Scheduled(fixedRate = 60000,  initialDelay = 60000)
     public void processSubmittedRequests() {
-        List<AuthorizationRequest> submittedRequests = authorizationRequestRepository.findByStatus(Status.SUBMITTED);
+        List<AuthorizationRequest> submittedRequests = authorizationRequestRepository.findByRequestStatus(RequestStatus.SUBMITTED);
 
         for (AuthorizationRequest request : submittedRequests) {
             authorizationRequestService.processSubmittedRequest(request.getId());

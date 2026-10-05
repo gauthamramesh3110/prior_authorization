@@ -1,7 +1,7 @@
 package com.lifeforce.payer.request.repository;
 
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
-import com.lifeforce.payer.request.domain.Status;
+import com.lifeforce.payer.request.domain.RequestStatus;
 import org.springframework.data.repository.Repository;
 
 import java.util.List;
@@ -11,7 +11,7 @@ import java.util.UUID;
 public interface AuthorizationRequestRepository extends Repository<AuthorizationRequest, UUID> {
     boolean existsById(UUID id);
 
-    List<AuthorizationRequest> findByStatus(Status status);
+    List<AuthorizationRequest> findByRequestStatus(RequestStatus requestStatus);
 
     AuthorizationRequest save(AuthorizationRequest request);
 

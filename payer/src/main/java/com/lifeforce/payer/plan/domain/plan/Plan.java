@@ -1,4 +1,4 @@
-package com.lifeforce.payer.plan.domain;
+package com.lifeforce.payer.plan.domain.plan;
 
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;

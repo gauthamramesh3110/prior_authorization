@@ -1,13 +1,12 @@
 package com.lifeforce.payer.review.domain;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.EnumType;
-import jakarta.persistence.Enumerated;
-import jakarta.persistence.Id;
+import com.lifeforce.payer.request.domain.AuthorizationRequest;
+import jakarta.persistence.*;
 import lombok.Getter;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.UUID;
 
 @Getter
@@ -16,10 +15,12 @@ public class Review {
     @Id
     UUID id;
 
+    @Column(name = "request_id")
     UUID requestId;
 
+    @Column(name = "status")
     @Enumerated(EnumType.STRING)
-    Status status;
+    ReviewStatus reviewStatus;
 
     @Enumerated(EnumType.STRING)
     Decision decision;
@@ -41,6 +42,10 @@ public class Review {
 
     Integer approvedQuantity;
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "request_id", insertable = false, updatable = false, nullable = false)
+    AuthorizationRequest authorizationRequest;
+
     public static Review createNewReview(
             UUID requestId,
             Clock clock
@@ -48,7 +53,7 @@ public class Review {
         Review review = new Review();
         review.id = UUID.randomUUID();
         review.requestId = requestId;
-        review.status = Status.PENDING_EVALUATION;
+        review.reviewStatus = ReviewStatus.PENDING_EVALUATION;
         review.lastUpdated = Instant.now(clock);
         return review;
     }
@@ -60,8 +65,31 @@ public class Review {
         Review review = new Review();
         review.id = UUID.randomUUID();
         review.requestId = requestId;
-        review.status = Status.PENDING_MANUAL_REVIEW;
+        review.reviewStatus = ReviewStatus.PENDING_MANUAL_REVIEW;
         review.lastUpdated = Instant.now(clock);
         return review;
+    }
+
+    public void updateStatusToManualReview(Clock clock) {
+        this.reviewStatus = ReviewStatus.PENDING_MANUAL_REVIEW;
+        this.lastUpdated = Instant.now(clock);
+    }
+
+    public void updateStatusToAwaitingEvidence(Clock clock) {
+        this.reviewStatus = ReviewStatus.AWAITING_EVIDENCE;
+        this.lastUpdated = Instant.now(clock);
+    }
+
+    public void updateStatusToAutoApproved(Integer quantity, Clock clock) {
+        Instant decisionTime = Instant.now(clock);
+        this.reviewStatus = ReviewStatus.DECIDED;
+        this.lastUpdated = decisionTime;
+        this.decision = Decision.APPROVED;
+        this.decisionReason = "Auto Approved";
+        this.decisionDate = decisionTime;
+        this.approvedQuantity = quantity;
+        this.decidedBy = DecisionActor.SYSTEM;
+        this.validFrom = decisionTime;
+        this.validTo = decisionTime.plus(30, ChronoUnit.DAYS);
     }
 }

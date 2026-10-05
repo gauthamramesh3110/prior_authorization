@@ -1,4 +1,4 @@
-package com.lifeforce.payer.plan.domain;
+package com.lifeforce.payer.plan.domain.policy;
 
 public enum ReviewMode {
     AUTO_APPROVAL_ELIGIBLE,
