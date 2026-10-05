@@ -26,6 +26,11 @@ public class AuthorizationRequestController {
     public ResponseEntity<HttpAuthorizationResponse> createRequest(@RequestBody @Validated HttpAuthorizationRequest request, BindingResult result) {
         if  (result.hasErrors()) {
             System.err.println(result.getAllErrors());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new HttpAuthorizationResponse(
+                    request.requestId(),
+                    ResponseStatus.MALFORMED_REQUEST,
+                    result.getAllErrors().getFirst().getDefaultMessage()
+            ));
         }
 
         HttpAuthorizationResponse response = authorizationRequestService.createAuthorizationRequest(request);

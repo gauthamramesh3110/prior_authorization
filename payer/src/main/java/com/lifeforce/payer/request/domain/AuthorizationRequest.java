@@ -34,7 +34,7 @@ public class AuthorizationRequest {
     @Enumerated(EnumType.STRING)
     Status status;
 
-    @Column(name = "status_reason", nullable = false)
+    @Column(name = "status_reason")
     @Enumerated(EnumType.STRING)
     StatusReason statusReason;
 
@@ -60,6 +60,12 @@ public class AuthorizationRequest {
         this.requestedService = httpAuthorizationRequest.requestedService();
         this.clinicalJustification = httpAuthorizationRequest.clinicalJustification();
         this.submittedAt = httpAuthorizationRequest.submittedAt();
+        return this;
+    }
+
+    public AuthorizationRequest updateStatus(Status newStatus, StatusReason newStatusReason) {
+        this.status = newStatus;
+        this.statusReason = newStatusReason;
         return this;
     }
 }

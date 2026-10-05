@@ -11,9 +11,9 @@ public record HttpAuthorizationRequest(
     @Valid @NotNull Instant submittedAt,
     @Valid @NotNull UUID patientId,
     @Valid @NotNull UUID providerId,
-    @Valid UUID organizationId,
+    @Valid @NotNull UUID organizationId,
     @Valid @NotNull UUID planId,
     @Valid @NotNull RequestedService requestedService,
-    @Valid ClinicalJustification clinicalJustification
+    @Valid @NotNull ClinicalJustification clinicalJustification
 ) {}
 
