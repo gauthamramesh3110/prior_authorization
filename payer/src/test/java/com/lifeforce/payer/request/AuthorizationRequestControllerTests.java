@@ -1,5 +1,6 @@
 package com.lifeforce.payer.request;
 
+import com.lifeforce.payer.common.ApiExceptionHandler;
 import com.lifeforce.payer.request.controller.AuthorizationRequestController;
 import com.lifeforce.payer.request.dto.AuthorizationSubmission;
 import com.lifeforce.payer.request.dto.AuthorizationSubmissionResponse;
@@ -30,9 +31,11 @@ import tools.jackson.databind.node.ObjectNode;
 import java.math.BigDecimal;
 import java.util.UUID;
 
+import static org.hamcrest.Matchers.hasItem;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -50,6 +53,7 @@ class AuthorizationRequestControllerTests {
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders.standaloneSetup(new AuthorizationRequestController(authorizationRequestService, evidenceSubmissionService, requestQueryService))
+                .setControllerAdvice(new ApiExceptionHandler())
                 .setValidator(validator).build();
     }
 
@@ -81,7 +85,11 @@ class AuthorizationRequestControllerTests {
                 .thenThrow(new ResponseStatusException(failureStatus, "Rejected"));
 
         mockMvc.perform(post("/api/v1/requests").contentType(MediaType.APPLICATION_JSON).content(requestBody()))
-                .andExpect(status().is(failureStatus.value()));
+                .andExpect(status().is(failureStatus.value()))
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.instance").value("/api/v1/requests"))
+                .andExpect(jsonPath("$.status").value(failureStatus.value()))
+                .andExpect(jsonPath("$.detail").value("Rejected"));
     }
 
     @ParameterizedTest
@@ -136,7 +144,9 @@ class AuthorizationRequestControllerTests {
     @Test
     void rejectsMalformedJsonBeforeCallingService() throws Exception {
         mockMvc.perform(post("/api/v1/requests").contentType(MediaType.APPLICATION_JSON).content("{"))
-                .andExpect(status().isBadRequest());
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Failed to read request"));
         verifyNoInteractions(authorizationRequestService);
     }
 
@@ -153,6 +163,21 @@ class AuthorizationRequestControllerTests {
         ArgumentCaptor<AuthorizationSubmission> request = ArgumentCaptor.forClass(AuthorizationSubmission.class);
         verify(authorizationRequestService).submitAuthorizationRequest(request.capture());
         assertEquals(new BigDecimal("35.1"), request.getValue().clinicalJustification().observations().getFirst().value());
+    }
+
+    @Test
+    void explainsEachInvalidNestedField() throws Exception {
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(requestBody());
+        body.withObject("requestedService").put("quantity", 0).put("code", "");
+
+        mockMvc.perform(post("/api/v1/requests").contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Request validation failed"))
+                .andExpect(jsonPath("$.errors[?(@.field == 'requestedService.quantity')].message").value(hasItem("must be greater than 0")))
+                .andExpect(jsonPath("$.errors[?(@.field == 'requestedService.code')].message").value(hasItem("must not be blank")));
+        verifyNoInteractions(authorizationRequestService);
     }
 
     void assertMalformedRequest(String body) throws Exception {

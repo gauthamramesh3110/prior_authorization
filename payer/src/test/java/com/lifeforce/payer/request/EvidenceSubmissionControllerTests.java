@@ -1,5 +1,6 @@
 package com.lifeforce.payer.request;
 
+import com.lifeforce.payer.common.ApiExceptionHandler;
 import com.lifeforce.payer.request.controller.AuthorizationRequestController;
 import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.domain.RequestStatusReason;
@@ -55,6 +56,7 @@ class EvidenceSubmissionControllerTests {
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders.standaloneSetup(new AuthorizationRequestController(authorizationRequestService, evidenceSubmissionService, requestQueryService))
+                .setControllerAdvice(new ApiExceptionHandler())
                 .setValidator(validator).build();
     }
 
@@ -155,8 +157,24 @@ class EvidenceSubmissionControllerTests {
 
         mockMvc.perform(patch("/api/v1/requests/{id}/evidence", requestId)
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody()))
-                .andExpect(status().is(failureStatus.value()));
+                .andExpect(status().is(failureStatus.value()))
+                .andExpect(jsonPath("$.status").value(failureStatus.value()))
+                .andExpect(jsonPath("$.detail").value("Evidence could not be submitted"));
         verify(evidenceSubmissionService).submitEvidence(eq(requestId), any());
+    }
+
+    @Test
+    void explainsInvalidEvidenceObservation() throws Exception {
+        ObjectNode body = body();
+        ((ObjectNode) body.get("clinicalJustification").get("observations").get(0)).putNull("value");
+
+        mockMvc.perform(patch("/api/v1/requests/{id}/evidence", requestId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Request validation failed"))
+                .andExpect(jsonPath("$.errors[0].field").value("clinicalJustification.observations[0].value"))
+                .andExpect(jsonPath("$.errors[0].message").value("must not be null"));
+        verifyNoInteractions(evidenceSubmissionService);
     }
 
     ObjectNode body() {

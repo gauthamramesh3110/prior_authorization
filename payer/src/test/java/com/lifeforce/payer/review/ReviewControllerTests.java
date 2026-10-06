@@ -1,5 +1,6 @@
 package com.lifeforce.payer.review;
 
+import com.lifeforce.payer.common.ApiExceptionHandler;
 import com.lifeforce.payer.plan.domain.policy.EvidenceType;
 import com.lifeforce.payer.plan.domain.policy.Match;
 import com.lifeforce.payer.plan.domain.policy.PolicyCriterionOperator;
@@ -70,6 +71,7 @@ class ReviewControllerTests {
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(reviewQueryService, reviewDecisionService, reviewEvidenceService))
+                .setControllerAdvice(new ApiExceptionHandler())
                 .setValidator(validator).build();
     }
 
@@ -156,7 +158,9 @@ class ReviewControllerTests {
     @Test
     void returnsNotFoundForUnknownReview() throws Exception {
         mockMvc.perform(get("/api/v1/reviews/{id}", reviewId))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Review does not exist"));
         verify(reviewQueryService).getReviewDetails(reviewId);
     }
 
@@ -277,9 +281,22 @@ class ReviewControllerTests {
 
         mockMvc.perform(post("/api/v1/reviews/{id}/decision", reviewId)
                         .contentType(MediaType.APPLICATION_JSON).content(decisionBody()))
-                .andExpect(status().is(failureStatus.value()));
+                .andExpect(status().is(failureStatus.value()))
+                .andExpect(jsonPath("$.status").value(failureStatus.value()))
+                .andExpect(jsonPath("$.detail").value("Decision could not be submitted"));
         verify(reviewDecisionService).submitManualDecision(eq(reviewId), any());
         verifyNoInteractions(reviewQueryService);
+    }
+
+    @Test
+    void explainsMissingDecisionReason() throws Exception {
+        mockMvc.perform(post("/api/v1/reviews/{id}/decision", reviewId)
+                        .contentType(MediaType.APPLICATION_JSON).content(decisionBody().replace("Clinical review completed", "")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Request validation failed"))
+                .andExpect(jsonPath("$.errors[0].field").value("decisionReason"))
+                .andExpect(jsonPath("$.errors[0].message").value("must not be blank"));
+        verifyNoInteractions(reviewDecisionService, reviewQueryService);
     }
 
     void assertInvalidDecisionBody(String body) throws Exception {

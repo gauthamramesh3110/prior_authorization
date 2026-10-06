@@ -1,5 +1,6 @@
 package com.lifeforce.payer.review;
 
+import com.lifeforce.payer.common.ApiExceptionHandler;
 import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.domain.RequestStatusReason;
 import com.lifeforce.payer.review.controller.ReviewController;
@@ -58,6 +59,7 @@ class ReviewEvidenceControllerTests {
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
         mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(reviewQueryService, reviewDecisionService, reviewEvidenceService))
+                .setControllerAdvice(new ApiExceptionHandler())
                 .setValidator(validator).build();
     }
 
@@ -170,8 +172,21 @@ class ReviewEvidenceControllerTests {
 
         mockMvc.perform(post("/api/v1/reviews/{id}/evidence-requests", reviewId)
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody()))
-                .andExpect(status().is(failureStatus.value()));
+                .andExpect(status().is(failureStatus.value()))
+                .andExpect(jsonPath("$.status").value(failureStatus.value()))
+                .andExpect(jsonPath("$.detail").value("Evidence could not be requested"));
         verify(reviewEvidenceService).requestEvidence(eq(reviewId), any());
+    }
+
+    @Test
+    void explainsMissingEvidenceRequestSummary() throws Exception {
+        mockMvc.perform(post("/api/v1/reviews/{id}/evidence-requests", reviewId)
+                        .contentType(MediaType.APPLICATION_JSON).content(requestBody().replace("Please provide supporting evidence", "")))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.detail").value("Request validation failed"))
+                .andExpect(jsonPath("$.errors[0].field").value("evidenceRequest.summary"))
+                .andExpect(jsonPath("$.errors[0].message").value("must not be blank"));
+        verifyNoInteractions(reviewEvidenceService);
     }
 
     void assertInvalidBody(String body) throws Exception {

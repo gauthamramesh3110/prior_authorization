@@ -1,5 +1,6 @@
 package com.lifeforce.payer.request;
 
+import com.lifeforce.payer.common.ApiExceptionHandler;
 import com.lifeforce.payer.request.controller.AuthorizationRequestController;
 import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.domain.RequestStatusReason;
@@ -23,6 +24,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.web.server.ResponseStatusException;
@@ -54,7 +56,8 @@ class RequestQueryControllerTests {
 
     @BeforeEach
     void createController() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new AuthorizationRequestController(authorizationRequestService, evidenceSubmissionService, requestQueryService)).build();
+        mockMvc = MockMvcBuilders.standaloneSetup(new AuthorizationRequestController(authorizationRequestService, evidenceSubmissionService, requestQueryService))
+                .setControllerAdvice(new ApiExceptionHandler()).build();
     }
 
     @AfterEach
@@ -121,7 +124,10 @@ class RequestQueryControllerTests {
         when(requestQueryService.getProviderRequests(providerId, null)).thenThrow(new ResponseStatusException(HttpStatus.NOT_FOUND, "Provider does not exist"));
 
         mockMvc.perform(get("/api/v1/requests").param("providerId", providerId.toString()))
-                .andExpect(status().isNotFound());
+                .andExpect(status().isNotFound())
+                .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_PROBLEM_JSON))
+                .andExpect(jsonPath("$.status").value(404))
+                .andExpect(jsonPath("$.detail").value("Provider does not exist"));
     }
 
     @Test
@@ -179,7 +185,9 @@ class RequestQueryControllerTests {
         when(requestQueryService.getProviderRequestDetails(requestId, providerId)).thenThrow(new ResponseStatusException(failureStatus, "Request is unavailable"));
 
         mockMvc.perform(get("/api/v1/requests/{id}", requestId).param("providerId", providerId.toString()))
-                .andExpect(status().is(failureStatus.value()));
+                .andExpect(status().is(failureStatus.value()))
+                .andExpect(jsonPath("$.status").value(failureStatus.value()))
+                .andExpect(jsonPath("$.detail").value("Request is unavailable"));
     }
 
     @Test
