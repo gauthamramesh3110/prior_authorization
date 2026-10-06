@@ -80,6 +80,11 @@ public class Review {
         this.lastUpdated = Instant.now(clock);
     }
 
+    public void requestEvidence(UUID reviewerId, Clock clock) {
+        updateStatusToAwaitingEvidence(clock);
+        this.reviewerId = reviewerId;
+    }
+
     public void updateStatusToAutoApproved(Integer quantity, Clock clock) {
         Instant decisionTime = Instant.now(clock);
         this.reviewStatus = ReviewStatus.DECIDED;

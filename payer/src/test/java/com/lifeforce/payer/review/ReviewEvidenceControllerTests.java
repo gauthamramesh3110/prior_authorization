@@ -1,0 +1,178 @@
+package com.lifeforce.payer.review;
+
+import com.lifeforce.payer.request.domain.RequestStatus;
+import com.lifeforce.payer.request.domain.RequestStatusReason;
+import com.lifeforce.payer.review.controller.ReviewController;
+import com.lifeforce.payer.review.domain.ReviewStatus;
+import com.lifeforce.payer.review.dto.EvidenceRequest;
+import com.lifeforce.payer.review.dto.EvidenceRequestResponse;
+import com.lifeforce.payer.review.service.ReviewDecisionService;
+import com.lifeforce.payer.review.service.ReviewEvidenceService;
+import com.lifeforce.payer.review.service.ReviewQueryService;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.NullSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
+
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.mockito.Mockito.*;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
+
+@ExtendWith(MockitoExtension.class)
+class ReviewEvidenceControllerTests {
+    @Mock ReviewQueryService reviewQueryService;
+    @Mock ReviewDecisionService reviewDecisionService;
+    @Mock ReviewEvidenceService reviewEvidenceService;
+
+    MockMvc mockMvc;
+    LocalValidatorFactoryBean validator;
+    UUID reviewId = UUID.randomUUID();
+    UUID requestId = UUID.randomUUID();
+    UUID reviewerId = UUID.randomUUID();
+    Instant requestedAt = Instant.parse("2026-10-05T12:00:00Z");
+
+    @BeforeEach
+    void createController() {
+        validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(reviewQueryService, reviewDecisionService, reviewEvidenceService))
+                .setValidator(validator).build();
+    }
+
+    @AfterEach
+    void closeValidator() {
+        validator.close();
+        verifyNoInteractions(reviewQueryService, reviewDecisionService);
+    }
+
+    @Test
+    void requestsEvidenceAndReturnsUpdatedStatusesAndRequestedItems() throws Exception {
+        UUID evidenceRequestId = UUID.randomUUID();
+        EvidenceRequestResponse response = new EvidenceRequestResponse(
+                evidenceRequestId, reviewId, requestId, reviewerId, "Please provide supporting evidence",
+                List.of("EF observation", "Echocardiogram report"), requestedAt,
+                ReviewStatus.AWAITING_EVIDENCE, RequestStatus.PENDING, RequestStatusReason.AWAITING_EVIDENCE
+        );
+        when(reviewEvidenceService.requestEvidence(eq(reviewId), any())).thenReturn(response);
+
+        mockMvc.perform(post("/api/v1/reviews/{id}/evidence-requests", reviewId)
+                        .contentType(MediaType.APPLICATION_JSON).content(requestBody()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(evidenceRequestId.toString()))
+                .andExpect(jsonPath("$.reviewId").value(reviewId.toString()))
+                .andExpect(jsonPath("$.requestId").value(requestId.toString()))
+                .andExpect(jsonPath("$.reviewerId").value(reviewerId.toString()))
+                .andExpect(jsonPath("$.message").value(response.message()))
+                .andExpect(jsonPath("$.requestedEvidence[0]").value("EF observation"))
+                .andExpect(jsonPath("$.requestedEvidence[1]").value("Echocardiogram report"))
+                .andExpect(jsonPath("$.requestedAt").value(requestedAt.toString()))
+                .andExpect(jsonPath("$.reviewStatus").value("AWAITING_EVIDENCE"))
+                .andExpect(jsonPath("$.requestStatus").value("PENDING"))
+                .andExpect(jsonPath("$.requestStatusReason").value("AWAITING_EVIDENCE"));
+        ArgumentCaptor<EvidenceRequest> request = ArgumentCaptor.forClass(EvidenceRequest.class);
+        verify(reviewEvidenceService).requestEvidence(eq(reviewId), request.capture());
+        assertEquals(reviewerId, request.getValue().reviewerId());
+        assertEquals(response.message(), request.getValue().message());
+        assertEquals(response.requestedEvidence(), request.getValue().requestedEvidence());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"reviewerId", "message", "requestedEvidence"})
+    void rejectsMissingFieldsBeforeCallingService(String field) throws Exception {
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(requestBody());
+        body.putNull(field);
+
+        assertInvalidBody(body.toString());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    void rejectsBlankMessageBeforeCallingService(String message) throws Exception {
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(requestBody());
+        body.put("message", message);
+
+        assertInvalidBody(body.toString());
+    }
+
+    @Test
+    void rejectsEmptyRequestedItemsBeforeCallingService() throws Exception {
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(requestBody());
+        body.putArray("requestedEvidence");
+
+        assertInvalidBody(body.toString());
+    }
+
+    @ParameterizedTest
+    @NullSource
+    @ValueSource(strings = {"", "   "})
+    void rejectsInvalidRequestedItemBeforeCallingService(String item) throws Exception {
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(requestBody());
+        body.putArray("requestedEvidence").add(item);
+
+        assertInvalidBody(body.toString());
+    }
+
+    @Test
+    void rejectsInvalidReviewerIdBeforeCallingService() throws Exception {
+        assertInvalidBody(requestBody().replace(reviewerId.toString(), "not-a-uuid"));
+    }
+
+    @Test
+    void rejectsInvalidReviewIdBeforeCallingService() throws Exception {
+        mockMvc.perform(post("/api/v1/reviews/not-a-uuid/evidence-requests")
+                        .contentType(MediaType.APPLICATION_JSON).content(requestBody()))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(reviewEvidenceService);
+    }
+
+    @Test
+    void rejectsMalformedJsonBeforeCallingService() throws Exception {
+        assertInvalidBody("{");
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = HttpStatus.class, names = {"BAD_REQUEST", "NOT_FOUND", "CONFLICT"})
+    void returnsServiceFailureStatus(HttpStatus failureStatus) throws Exception {
+        when(reviewEvidenceService.requestEvidence(eq(reviewId), any()))
+                .thenThrow(new ResponseStatusException(failureStatus, "Evidence could not be requested"));
+
+        mockMvc.perform(post("/api/v1/reviews/{id}/evidence-requests", reviewId)
+                        .contentType(MediaType.APPLICATION_JSON).content(requestBody()))
+                .andExpect(status().is(failureStatus.value()));
+        verify(reviewEvidenceService).requestEvidence(eq(reviewId), any());
+    }
+
+    void assertInvalidBody(String body) throws Exception {
+        mockMvc.perform(post("/api/v1/reviews/{id}/evidence-requests", reviewId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(reviewEvidenceService);
+    }
+
+    String requestBody() {
+        return """
+                {"reviewerId":"%s","message":"Please provide supporting evidence","requestedEvidence":["EF observation","Echocardiogram report"]}
+                """.formatted(reviewerId);
+    }
+}

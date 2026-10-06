@@ -15,6 +15,7 @@ import com.lifeforce.payer.review.domain.DecisionActor;
 import com.lifeforce.payer.review.dto.ManualDecisionRequest;
 import com.lifeforce.payer.review.dto.ReviewDecisionResponse;
 import com.lifeforce.payer.review.service.ReviewDecisionService;
+import com.lifeforce.payer.review.service.ReviewEvidenceService;
 import com.lifeforce.payer.review.dto.ReviewDetails;
 import com.lifeforce.payer.review.dto.ReviewSummary;
 import com.lifeforce.payer.review.service.ReviewQueryService;
@@ -56,6 +57,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class ReviewControllerTests {
     @Mock ReviewQueryService reviewQueryService;
     @Mock ReviewDecisionService reviewDecisionService;
+    @Mock ReviewEvidenceService reviewEvidenceService;
     LocalValidatorFactoryBean validator;
     MockMvc mockMvc;
     UUID reviewerId = UUID.randomUUID();
@@ -67,7 +69,7 @@ class ReviewControllerTests {
     void createController() {
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
-        mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(reviewQueryService, reviewDecisionService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(reviewQueryService, reviewDecisionService, reviewEvidenceService))
                 .setValidator(validator).build();
     }
 

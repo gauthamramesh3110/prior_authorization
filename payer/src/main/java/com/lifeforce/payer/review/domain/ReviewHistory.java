@@ -9,6 +9,7 @@ import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
@@ -41,6 +42,14 @@ public class ReviewHistory {
 
     public static ReviewHistory createReviewerEvent(Review review) {
         return createEvent(review, review.getAuthorizationRequest(), "REVIEWER");
+    }
+
+    public static ReviewHistory createEvidenceRequestedEvent(Review review, String message, List<String> requestedEvidence) {
+        ReviewHistory history = createReviewerEvent(review);
+        history.eventType = "EVIDENCE_REQUESTED";
+        history.eventPayload.put("message", message);
+        history.eventPayload.put("requestedEvidence", List.copyOf(requestedEvidence));
+        return history;
     }
 
     private static ReviewHistory createEvent(Review review, AuthorizationRequest request, String eventSource) {

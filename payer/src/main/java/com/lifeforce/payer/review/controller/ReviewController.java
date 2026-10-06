@@ -1,12 +1,15 @@
 package com.lifeforce.payer.review.controller;
 
 import com.lifeforce.payer.review.domain.ReviewStatus;
+import com.lifeforce.payer.review.dto.EvidenceRequest;
+import com.lifeforce.payer.review.dto.EvidenceRequestResponse;
 import com.lifeforce.payer.review.dto.ManualDecisionRequest;
 import com.lifeforce.payer.review.dto.ReviewDecisionResponse;
 import com.lifeforce.payer.review.dto.ReviewDetails;
 import com.lifeforce.payer.review.dto.ReviewSummary;
 import com.lifeforce.payer.review.service.ReviewDecisionService;
 import com.lifeforce.payer.review.service.ReviewQueryService;
+import com.lifeforce.payer.review.service.ReviewEvidenceService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -26,10 +29,12 @@ import java.util.UUID;
 public class ReviewController {
     private final ReviewQueryService reviewQueryService;
     private final ReviewDecisionService reviewDecisionService;
+    private final ReviewEvidenceService reviewEvidenceService;
 
-    public ReviewController(ReviewQueryService reviewQueryService, ReviewDecisionService reviewDecisionService) {
+    public ReviewController(ReviewQueryService reviewQueryService, ReviewDecisionService reviewDecisionService, ReviewEvidenceService reviewEvidenceService) {
         this.reviewQueryService = reviewQueryService;
         this.reviewDecisionService = reviewDecisionService;
+        this.reviewEvidenceService = reviewEvidenceService;
     }
 
     @GetMapping("")
@@ -49,5 +54,10 @@ public class ReviewController {
     @PostMapping("/{id}/decision")
     public ResponseEntity<ReviewDecisionResponse> submitManualDecision(@PathVariable("id") UUID reviewId, @RequestBody @Valid ManualDecisionRequest request) {
         return ResponseEntity.ok(reviewDecisionService.submitManualDecision(reviewId, request));
+    }
+
+    @PostMapping("/{id}/evidence-requests")
+    public ResponseEntity<EvidenceRequestResponse> requestEvidence(@PathVariable("id") UUID reviewId, @RequestBody @Valid EvidenceRequest request) {
+        return ResponseEntity.ok(reviewEvidenceService.requestEvidence(reviewId, request));
     }
 }

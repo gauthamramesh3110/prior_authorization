@@ -6,6 +6,8 @@ Service tests instantiate the service directly and mock its dependencies. They t
 
 Manual decision service tests mock repositories and check approvals, rejections, quantity rules, state guards, response fields, reviewer history, repeat decisions, and persistence failures.
 
+Evidence service tests mock repositories and check requested items, reviewer history, allowed states, repeated requests, and persistence failures. Evidence controller tests use standalone MockMvc with mocked services and validate request fields.
+
 Review query service tests mock repositories and check queue summaries and request/policy detail mapping.
 
 Controller tests use standalone MockMvc with a mocked service. Scheduler tests mock both the repository and the service.

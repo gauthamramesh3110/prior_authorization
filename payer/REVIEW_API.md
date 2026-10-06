@@ -69,3 +69,34 @@ The server supplies the decision time. Approval is valid from that time for 30 d
 The service saves the request, review, and history within one transaction. The history event has source `REVIEWER` and type `MANUAL_APPROVED` or `MANUAL_REJECTED`, with the reviewer, reason, decision time, quantity, and validity dates in its snapshot.
 
 An unknown review returns `404 Not Found`. A review outside the manual queue, an authorization request that is no longer pending, or a repeated decision returns `409 Conflict`. Invalid input or quantity returns `400 Bad Request`.
+
+
+## Request evidence
+
+```http
+POST /api/v1/reviews/{id}/evidence-requests
+Content-Type: application/json
+```
+
+Example:
+
+```json
+{
+  "reviewerId": "7b4c27ca-7dac-4c92-a619-640d3dbb6e96",
+  "message": "Please provide an ejection fraction result and its supporting report",
+  "requestedEvidence": [
+    "EF observation with value, units, and recorded date",
+    "Echocardiogram report"
+  ]
+}
+```
+
+All fields are required. `message` must be nonblank, and `requestedEvidence` must contain at least one nonblank item.
+
+The review must be `PENDING_MANUAL_REVIEW` or `AWAITING_EVIDENCE`, and its authorization request must be `PENDING`. The service changes the review to `AWAITING_EVIDENCE`, sets the request reason to `AWAITING_EVIDENCE`, and records the requesting reviewer and current time. Original submission time and clinical evidence are preserved; decision fields remain unset.
+
+The request, review, and history are saved within one transaction. The history event has source `REVIEWER`, type `EVIDENCE_REQUESTED`, and a snapshot containing the message, requested items, reviewer ID, and resulting statuses. Another request while awaiting evidence appends a new event and preserves earlier events.
+
+A successful call returns `200 OK` with `id` (the history event ID), `reviewId`, `requestId`, `reviewerId`, `message`, `requestedEvidence`, `requestedAt`, `reviewStatus`, `requestStatus`, and `requestStatusReason`.
+
+An unknown review returns `404 Not Found`. A completed review, a review still pending automatic evaluation, or an authorization request that is no longer pending returns `409 Conflict`. Invalid input returns `400 Bad Request`.
