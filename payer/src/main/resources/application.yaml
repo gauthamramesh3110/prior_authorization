@@ -23,3 +23,7 @@ server:
 logging:
   level:
     org.flywaydb: INFO
+
+scheduler:
+  request-delay: 5000
+  review-delay: 5000

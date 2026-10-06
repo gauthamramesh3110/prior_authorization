@@ -22,7 +22,7 @@ public class ReviewScheduler {
         this.reviewService = reviewService;
     }
 
-    @Scheduled(fixedDelay = 60000, initialDelay = 60000)
+    @Scheduled(fixedDelayString = "${scheduler.review-delay}", initialDelayString = "${scheduler.review-delay}")
     public void processPendingReviews() {
         List <Review> pendingReviews = reviewRepository.findByReviewStatusOrderByLastUpdatedAsc(ReviewStatus.PENDING_EVALUATION);
 

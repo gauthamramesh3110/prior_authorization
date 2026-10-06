@@ -22,7 +22,7 @@ public class AuthorizationRequestScheduler {
         this.authorizationRequestService = authorizationRequestService;
     }
 
-    @Scheduled(fixedRate = 60000,  initialDelay = 60000)
+    @Scheduled(fixedDelayString = "${scheduler.request-delay}", initialDelayString = "${scheduler.request-delay}")
     public void processSubmittedRequests() {
         List<AuthorizationRequest> submittedRequests = authorizationRequestRepository.findByRequestStatus(RequestStatus.SUBMITTED);
 
