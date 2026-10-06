@@ -1,0 +1,23 @@
+[
+  {
+    "payer_id": "10000000-0000-4000-8000-000000000001",
+    "organization_id": "30000000-0000-4000-8000-000000000001",
+    "in_network": true,
+    "effective_from": "2026-01-01T00:00:00Z",
+    "effective_to": null
+  },
+  {
+    "payer_id": "10000000-0000-4000-8000-000000000001",
+    "organization_id": "30000000-0000-4000-8000-000000000002",
+    "in_network": true,
+    "effective_from": "2026-03-01T00:00:00Z",
+    "effective_to": "2026-07-01T00:00:00Z"
+  },
+  {
+    "payer_id": "10000000-0000-4000-8000-000000000001",
+    "organization_id": "30000000-0000-4000-8000-000000000003",
+    "in_network": false,
+    "effective_from": "2026-01-01T00:00:00Z",
+    "effective_to": null
+  }
+]

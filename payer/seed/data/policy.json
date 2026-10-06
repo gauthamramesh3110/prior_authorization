@@ -1,0 +1,114 @@
+[
+  {
+    "id": "70000000-0000-4000-8000-000000000001",
+    "review_mode": "AUTO_APPROVAL_ELIGIBLE",
+    "match": "ANY",
+    "criteria": [
+      {
+        "id": "b0000000-0000-4000-8000-000000000001",
+        "evidence_type": "CONDITION",
+        "code": "64859006",
+        "code_description": "Osteoporosis (disorder)",
+        "operator": "PRESENT",
+        "value": null,
+        "unit": null
+      },
+      {
+        "id": "b0000000-0000-4000-8000-000000000002",
+        "evidence_type": "CONDITION",
+        "code": "443165006",
+        "code_description": "Pathological fracture due to osteoporosis (disorder)",
+        "operator": "PRESENT",
+        "value": null,
+        "unit": null
+      }
+    ]
+  },
+  {
+    "id": "70000000-0000-4000-8000-000000000002",
+    "review_mode": "AUTO_APPROVAL_ELIGIBLE",
+    "match": "ALL",
+    "criteria": [
+      {
+        "id": "b0000000-0000-4000-8000-000000000003",
+        "evidence_type": "CONDITION",
+        "code": "88805009",
+        "code_description": "Chronic congestive heart failure (disorder)",
+        "operator": "PRESENT",
+        "value": null,
+        "unit": null
+      },
+      {
+        "id": "b0000000-0000-4000-8000-000000000004",
+        "evidence_type": "OBSERVATION",
+        "code": "10230-1",
+        "code_description": "Left ventricular Ejection fraction",
+        "operator": "LTE",
+        "value": 35,
+        "unit": "%"
+      }
+    ]
+  },
+  {
+    "id": "70000000-0000-4000-8000-000000000003",
+    "review_mode": "MANUAL_REVIEW",
+    "match": "ALL",
+    "criteria": []
+  },
+  {
+    "id": "70000000-0000-4000-8000-000000000004",
+    "review_mode": "AUTO_APPROVAL_ELIGIBLE",
+    "match": "ALL",
+    "criteria": []
+  },
+  {
+    "id": "70000000-0000-4000-8000-000000000005",
+    "review_mode": "AUTO_APPROVAL_ELIGIBLE",
+    "match": "ANY",
+    "criteria": [
+      {
+        "id": "b0000000-0000-4000-8000-000000000010",
+        "evidence_type": "CONDITION",
+        "code": "88805009",
+        "code_description": "Chronic congestive heart failure (disorder)",
+        "operator": "PRESENT",
+        "value": null,
+        "unit": null
+      },
+      {
+        "id": "b0000000-0000-4000-8000-000000000011",
+        "evidence_type": "OBSERVATION",
+        "code": "10230-1",
+        "code_description": "Left ventricular Ejection fraction",
+        "operator": "PRESENT",
+        "value": null,
+        "unit": "%"
+      }
+    ]
+  },
+  {
+    "id": "70000000-0000-4000-8000-000000000006",
+    "review_mode": "AUTO_APPROVAL_ELIGIBLE",
+    "match": "ANY",
+    "criteria": [
+      {
+        "id": "b0000000-0000-4000-8000-000000000012",
+        "evidence_type": "OBSERVATION",
+        "code": "19926-5",
+        "code_description": "FEV1/FVC",
+        "operator": "LT",
+        "value": 70,
+        "unit": "%"
+      },
+      {
+        "id": "b0000000-0000-4000-8000-000000000013",
+        "evidence_type": "OBSERVATION",
+        "code": "2708-6",
+        "code_description": "Oxygen saturation in Arterial blood",
+        "operator": "LTE",
+        "value": 88,
+        "unit": "%"
+      }
+    ]
+  }
+]

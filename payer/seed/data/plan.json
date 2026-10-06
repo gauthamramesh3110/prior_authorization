@@ -1,0 +1,90 @@
+[
+  {
+    "id": "20000000-0000-4000-8000-000000000001",
+    "payer_id": "10000000-0000-4000-8000-000000000001",
+    "name": "Harbor Choice PPO",
+    "plan_services": [
+      {
+        "id": "c0000000-0000-4000-8000-000000000001",
+        "code": "73761001",
+        "code_description": "Colonoscopy",
+        "code_type": "PROCEDURE",
+        "benefit_status": "COVERED",
+        "prior_authorization_required": false,
+        "policy_id": null
+      },
+      {
+        "id": "c0000000-0000-4000-8000-000000000002",
+        "code": "698354004",
+        "code_description": "Magnetic resonance imaging for measurement of brain volume (procedure)",
+        "code_type": "PROCEDURE",
+        "benefit_status": "EXCLUDED",
+        "prior_authorization_required": true,
+        "policy_id": null
+      },
+      {
+        "id": "c0000000-0000-4000-8000-000000000003",
+        "code": "312681000",
+        "code_description": "Bone density scan (procedure)",
+        "code_type": "PROCEDURE",
+        "benefit_status": "COVERED",
+        "prior_authorization_required": true,
+        "policy_id": "70000000-0000-4000-8000-000000000001"
+      },
+      {
+        "id": "c0000000-0000-4000-8000-000000000004",
+        "code": "447365002",
+        "code_description": "Insertion of biventricular implantable cardioverter defibrillator",
+        "code_type": "PROCEDURE",
+        "benefit_status": "COVERED",
+        "prior_authorization_required": true,
+        "policy_id": "70000000-0000-4000-8000-000000000002"
+      },
+      {
+        "id": "c0000000-0000-4000-8000-000000000005",
+        "code": "232717009",
+        "code_description": "Coronary artery bypass grafting",
+        "code_type": "PROCEDURE",
+        "benefit_status": "COVERED",
+        "prior_authorization_required": true,
+        "policy_id": "70000000-0000-4000-8000-000000000003"
+      },
+      {
+        "id": "c0000000-0000-4000-8000-000000000006",
+        "code": "274031008",
+        "code_description": "Rectal polypectomy",
+        "code_type": "PROCEDURE",
+        "benefit_status": "COVERED",
+        "prior_authorization_required": true,
+        "policy_id": "70000000-0000-4000-8000-000000000004"
+      },
+      {
+        "id": "c0000000-0000-4000-8000-000000000007",
+        "code": "241615005",
+        "code_description": "Magnetic resonance imaging of breast (procedure)",
+        "code_type": "PROCEDURE",
+        "benefit_status": "COVERED",
+        "prior_authorization_required": true,
+        "policy_id": null
+      },
+      {
+        "id": "c0000000-0000-4000-8000-000000000008",
+        "code": "433236007",
+        "code_description": "Transthoracic echocardiography",
+        "code_type": "PROCEDURE",
+        "benefit_status": "COVERED",
+        "prior_authorization_required": true,
+        "policy_id": "70000000-0000-4000-8000-000000000005"
+      },
+      {
+        "id": "c0000000-0000-4000-8000-000000000009",
+        "code": "127783003",
+        "code_description": "Spirometry (procedure)",
+        "code_type": "PROCEDURE",
+        "benefit_status": "COVERED",
+        "prior_authorization_required": true,
+        "policy_id": "70000000-0000-4000-8000-000000000006"
+      }
+    ]
+  }
+]

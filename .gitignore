@@ -38,5 +38,5 @@ build/
 ### Mac OS ###
 .DS_Store
 
-/seed/raw_data/
+/raw_data/
 /docs/
