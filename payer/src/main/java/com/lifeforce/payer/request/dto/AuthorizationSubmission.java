@@ -7,7 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import java.time.Instant;
 import java.util.UUID;
 
-public record HttpAuthorizationRequest(
+public record AuthorizationSubmission(
     @NotNull UUID requestId,
     @NotNull Instant submittedAt,
     @NotNull UUID patientId,

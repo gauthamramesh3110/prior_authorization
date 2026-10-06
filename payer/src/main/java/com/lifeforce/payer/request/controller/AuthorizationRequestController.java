@@ -5,8 +5,8 @@ import com.lifeforce.payer.request.dto.RequestDetails;
 import com.lifeforce.payer.request.dto.RequestSummary;
 import com.lifeforce.payer.request.dto.EvidenceSubmission;
 import com.lifeforce.payer.request.dto.EvidenceSubmissionResponse;
-import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
-import com.lifeforce.payer.request.dto.HttpAuthorizationResponse;
+import com.lifeforce.payer.request.dto.AuthorizationSubmission;
+import com.lifeforce.payer.request.dto.AuthorizationSubmissionResponse;
 import com.lifeforce.payer.request.service.AuthorizationRequestService;
 import com.lifeforce.payer.request.service.EvidenceSubmissionService;
 import com.lifeforce.payer.request.service.RequestQueryService;
@@ -40,8 +40,8 @@ public class AuthorizationRequestController {
     }
 
     @GetMapping("")
-    public ResponseEntity<List<RequestSummary>> getProviderRequests(@RequestParam("providerId") UUID providerId, @RequestParam(name = "status", required = false) RequestStatus status) {
-        return ResponseEntity.ok(requestQueryService.getProviderRequests(providerId, status));
+    public ResponseEntity<List<RequestSummary>> getProviderRequests(@RequestParam("providerId") UUID providerId, @RequestParam(name = "status", required = false) RequestStatus requestStatus) {
+        return ResponseEntity.ok(requestQueryService.getProviderRequests(providerId, requestStatus));
     }
 
     @GetMapping("/{id}")
@@ -50,12 +50,12 @@ public class AuthorizationRequestController {
     }
 
     @PatchMapping("/{id}/evidence")
-    public EvidenceSubmissionResponse submitEvidence(@PathVariable("id") UUID id, @Valid @RequestBody EvidenceSubmission submission) {
-        return evidenceSubmissionService.submitEvidence(id, submission);
+    public EvidenceSubmissionResponse submitEvidence(@PathVariable("id") UUID requestId, @Valid @RequestBody EvidenceSubmission submission) {
+        return evidenceSubmissionService.submitEvidence(requestId, submission);
     }
 
     @PostMapping("")
-    public ResponseEntity<HttpAuthorizationResponse> createRequest(@RequestBody @Valid HttpAuthorizationRequest request) {
-        return ResponseEntity.status(HttpStatus.CREATED).body(authorizationRequestService.createAuthorizationRequest(request));
+    public ResponseEntity<AuthorizationSubmissionResponse> submitAuthorizationRequest(@RequestBody @Valid AuthorizationSubmission submission) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authorizationRequestService.submitAuthorizationRequest(submission));
     }
 }

@@ -13,19 +13,19 @@ import java.util.List;
 import java.util.Optional;
 
 @Service
-public class PlanEvalService {
+public class PolicyEvaluationService {
 
-    public PlanEvalService() {
+    public PolicyEvaluationService() {
     }
 
-    public PolicyEvaluationResult evalPolicyForEvidence(Policy policy, ClinicalJustification justification, Instant evidenceAt) {
+    public PolicyEvaluationResult evaluatePolicy(Policy policy, ClinicalJustification justification, Instant evidenceAt) {
         if (policy == null || policy.getReviewMode() != ReviewMode.AUTO_APPROVAL_ELIGIBLE || policy.getMatch() == null || policy.getPolicyCriteria() == null || policy.getPolicyCriteria().isEmpty()) {
             return PolicyEvaluationResult.MANUAL_REVIEW_REQUIRED;
         }
 
         List<PolicyEvaluationResult> results = new ArrayList<>();
         for (PolicyCriterion criterion : policy.getPolicyCriteria()) {
-            results.add(evalCriterionForEvidence(criterion, justification, evidenceAt));
+            results.add(evaluateCriterion(criterion, justification, evidenceAt));
         }
 
         if (results.contains(PolicyEvaluationResult.MANUAL_REVIEW_REQUIRED)) {
@@ -48,7 +48,7 @@ public class PlanEvalService {
         List<String> requestedConditions = new ArrayList<>();
         List<String> requestedObservations = new ArrayList<>();
         for (PolicyCriterion criterion : policy.getPolicyCriteria()) {
-            if (evalCriterionForEvidence(criterion, justification, evidenceAt) != PolicyEvaluationResult.AWAITING_EVIDENCE) {
+            if (evaluateCriterion(criterion, justification, evidenceAt) != PolicyEvaluationResult.AWAITING_EVIDENCE) {
                 continue;
             }
             if (criterion.getEvidenceType() == EvidenceType.CONDITION) {
@@ -60,7 +60,7 @@ public class PlanEvalService {
         return new RequestedEvidence("Provide the missing clinical evidence required by the policy", requestedConditions, requestedObservations, null);
     }
 
-    private PolicyEvaluationResult evalCriterionForEvidence(PolicyCriterion criterion, ClinicalJustification justification, Instant evidenceAt) {
+    private PolicyEvaluationResult evaluateCriterion(PolicyCriterion criterion, ClinicalJustification justification, Instant evidenceAt) {
         if (justification == null) {
             return PolicyEvaluationResult.AWAITING_EVIDENCE;
         }

@@ -9,9 +9,9 @@ import com.lifeforce.payer.reference.repository.OrganizationRepository;
 import com.lifeforce.payer.reference.repository.PatientRepository;
 import com.lifeforce.payer.reference.repository.ProviderRepository;
 import com.lifeforce.payer.request.domain.*;
-import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
-import com.lifeforce.payer.request.dto.HttpAuthorizationResponse;
-import com.lifeforce.payer.request.dto.ResponseStatus;
+import com.lifeforce.payer.request.dto.AuthorizationSubmission;
+import com.lifeforce.payer.request.dto.AuthorizationSubmissionResponse;
+import com.lifeforce.payer.request.dto.SubmissionStatus;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.request.repository.CoverageRepository;
 import com.lifeforce.payer.plan.repository.PlanRepository;
@@ -51,34 +51,34 @@ public class AuthorizationRequestService {
     }
 
     @Transactional
-    public HttpAuthorizationResponse createAuthorizationRequest(HttpAuthorizationRequest request) {
-        boolean isDuplicate = authorizationRequestRepository.existsById(request.requestId());
+    public AuthorizationSubmissionResponse submitAuthorizationRequest(AuthorizationSubmission submission) {
+        boolean isDuplicate = authorizationRequestRepository.existsById(submission.requestId());
         if (isDuplicate) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request has already been submitted");
         }
 
-        if (!patientRepository.existsById(request.patientId())) {
+        if (!patientRepository.existsById(submission.patientId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Patient does not exist");
         }
 
-        if (!organizationRepository.existsById(request.organizationId())) {
+        if (!organizationRepository.existsById(submission.organizationId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Organization does not exist");
         }
 
-        if (!providerRepository.existsByIdAndOrganizationId(request.providerId(), request.organizationId())) {
+        if (!providerRepository.existsByIdAndOrganizationId(submission.providerId(), submission.organizationId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Provider does not exist or does not belong to organization");
         }
 
-        if (!planRepository.existsById(request.planId())) {
+        if (!planRepository.existsById(submission.planId())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Plan does not exist");
         }
 
-        AuthorizationRequest authorizationRequest = request.toDomain();
+        AuthorizationRequest authorizationRequest = submission.toDomain();
         authorizationRequestRepository.save(authorizationRequest);
 
-        return new HttpAuthorizationResponse(
+        return new AuthorizationSubmissionResponse(
                 authorizationRequest.getId(),
-                ResponseStatus.SUBMITTED,
+                SubmissionStatus.SUBMITTED,
                 "Request has been submitted"
         );
     }
@@ -174,7 +174,7 @@ public class AuthorizationRequestService {
         }
 
         // CREATE A REVIEW FOR PRIOR AUTH REQUIRED CRITERIA
-        Review review = Review.createNewReview(request.getId(), clock);
+        Review review = Review.createNewEvaluationReview(request.getId(), clock);
         request.updateStatusToPendingEvaluation();
         authorizationRequestRepository.save(request);
         reviewRepository.save(review);

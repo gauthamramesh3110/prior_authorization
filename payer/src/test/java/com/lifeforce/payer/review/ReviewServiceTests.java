@@ -4,7 +4,7 @@ import com.lifeforce.payer.plan.domain.plan.CodeType;
 import com.lifeforce.payer.plan.domain.plan.PlanService;
 import com.lifeforce.payer.plan.domain.policy.Policy;
 import com.lifeforce.payer.plan.repository.PlanServiceRepository;
-import com.lifeforce.payer.plan.service.PlanEvalService;
+import com.lifeforce.payer.plan.service.PolicyEvaluationService;
 import com.lifeforce.payer.plan.service.PolicyEvaluationResult;
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import com.lifeforce.payer.request.domain.RequestStatus;
@@ -43,7 +43,7 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class ReviewServiceTests {
-    @Mock PlanEvalService planEvalService;
+    @Mock PolicyEvaluationService policyEvaluationService;
     @Mock ReviewRepository reviewRepository;
     @Mock PlanServiceRepository planServiceRepository;
     @Mock AuthorizationRequestRepository authorizationRequestRepository;
@@ -54,7 +54,7 @@ class ReviewServiceTests {
 
     @BeforeEach
     void createService() {
-        reviewService = new ReviewService(planEvalService, reviewRepository, planServiceRepository, authorizationRequestRepository, clock);
+        reviewService = new ReviewService(policyEvaluationService, reviewRepository, planServiceRepository, authorizationRequestRepository, clock);
     }
 
     @Test
@@ -62,7 +62,7 @@ class ReviewServiceTests {
         reviewService.evaluateReview(UUID.randomUUID());
 
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(planServiceRepository, planEvalService, authorizationRequestRepository);
+        verifyNoInteractions(planServiceRepository, policyEvaluationService, authorizationRequestRepository);
     }
 
     @ParameterizedTest
@@ -75,7 +75,7 @@ class ReviewServiceTests {
 
         assertEquals(status, review.getReviewStatus());
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(planServiceRepository, planEvalService, authorizationRequestRepository);
+        verifyNoInteractions(planServiceRepository, policyEvaluationService, authorizationRequestRepository);
     }
 
     @Test
@@ -122,7 +122,7 @@ class ReviewServiceTests {
 
         assertOutcome(review, ReviewStatus.PENDING_MANUAL_REVIEW, RequestStatus.PENDING, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
         verify(planServiceRepository).findByPlanIdAndCodeAndCodeType(review.getAuthorizationRequest().getPlanId(), "PA", CodeType.PROCEDURE);
-        verifyNoInteractions(planEvalService);
+        verifyNoInteractions(policyEvaluationService);
     }
 
     @Test
@@ -144,7 +144,7 @@ class ReviewServiceTests {
         reviewService.evaluateReview(review.getId());
         reviewService.evaluateReview(review.getId());
 
-        verify(planEvalService).evalPolicyForEvidence(policy, review.getAuthorizationRequest().getClinicalJustification(), submittedAt);
+        verify(policyEvaluationService).evaluatePolicy(policy, review.getAuthorizationRequest().getClinicalJustification(), submittedAt);
         assertOutcome(review, ReviewStatus.DECIDED, RequestStatus.APPROVED, RequestStatusReason.AUTO_APPROVED);
     }
 
@@ -158,11 +158,11 @@ class ReviewServiceTests {
         PlanService planService = new PlanService();
         ReflectionTestUtils.setField(planService, "policy", policy);
         when(planServiceRepository.findByPlanIdAndCodeAndCodeType(request.getPlanId(), "PA", CodeType.PROCEDURE)).thenReturn(Optional.of(planService));
-        when(planEvalService.evalPolicyForEvidence(policy, request.getClinicalJustification(), clock.instant())).thenReturn(PolicyEvaluationResult.MATCHED);
+        when(policyEvaluationService.evaluatePolicy(policy, request.getClinicalJustification(), clock.instant())).thenReturn(PolicyEvaluationResult.MATCHED);
 
         reviewService.evaluateReview(review.getId());
 
-        verify(planEvalService).evalPolicyForEvidence(policy, request.getClinicalJustification(), clock.instant());
+        verify(policyEvaluationService).evaluatePolicy(policy, request.getClinicalJustification(), clock.instant());
         assertEquals(submittedAt, request.getSubmittedAt());
         assertOutcome(review, ReviewStatus.DECIDED, RequestStatus.APPROVED, RequestStatusReason.AUTO_APPROVED);
     }
@@ -188,7 +188,7 @@ class ReviewServiceTests {
 
         assertEquals(List.of("CHF"), review.getEvidenceRequest().requestedConditions());
         assertEquals(List.of("EF"), review.getEvidenceRequest().requestedObservations());
-        verify(planEvalService).getRequestedEvidence(policy, review.getAuthorizationRequest().getClinicalJustification(), submittedAt);
+        verify(policyEvaluationService).getRequestedEvidence(policy, review.getAuthorizationRequest().getClinicalJustification(), submittedAt);
         assertOutcome(review, ReviewStatus.AWAITING_EVIDENCE, RequestStatus.PENDING, RequestStatusReason.AWAITING_EVIDENCE);
     }
 
@@ -210,7 +210,7 @@ class ReviewServiceTests {
                 new ClinicalJustification(null, List.of(), List.of())
         );
         request.updateStatusToPendingEvaluation();
-        Review review = Review.createNewReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
+        Review review = Review.createNewEvaluationReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
         ReflectionTestUtils.setField(review, "authorizationRequest", request);
         when(reviewRepository.findById(review.getId())).thenReturn(Optional.of(review));
         return review;
@@ -221,9 +221,9 @@ class ReviewServiceTests {
         PlanService planService = new PlanService();
         ReflectionTestUtils.setField(planService, "policy", policy);
         when(planServiceRepository.findByPlanIdAndCodeAndCodeType(request.getPlanId(), "PA", CodeType.PROCEDURE)).thenReturn(Optional.of(planService));
-        when(planEvalService.evalPolicyForEvidence(policy, request.getClinicalJustification(), submittedAt)).thenReturn(result);
+        when(policyEvaluationService.evaluatePolicy(policy, request.getClinicalJustification(), submittedAt)).thenReturn(result);
         if (result == PolicyEvaluationResult.AWAITING_EVIDENCE) {
-            when(planEvalService.getRequestedEvidence(policy, request.getClinicalJustification(), submittedAt))
+            when(policyEvaluationService.getRequestedEvidence(policy, request.getClinicalJustification(), submittedAt))
                     .thenReturn(new RequestedEvidence("Provide missing evidence", List.of("CHF"), List.of("EF"), null));
         }
     }

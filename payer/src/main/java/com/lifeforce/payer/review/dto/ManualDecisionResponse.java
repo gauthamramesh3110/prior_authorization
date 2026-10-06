@@ -10,7 +10,7 @@ import com.lifeforce.payer.review.domain.ReviewStatus;
 import java.time.Instant;
 import java.util.UUID;
 
-public record ReviewDecisionResponse(
+public record ManualDecisionResponse(
         UUID id,
         UUID requestId,
         ReviewStatus reviewStatus,
@@ -25,8 +25,8 @@ public record ReviewDecisionResponse(
         Instant validFrom,
         Instant validTo
 ) {
-    public static ReviewDecisionResponse from(Review review) {
-        return new ReviewDecisionResponse(
+    public static ManualDecisionResponse from(Review review) {
+        return new ManualDecisionResponse(
                 review.getId(), review.getRequestId(), review.getReviewStatus(),
                 review.getAuthorizationRequest().getRequestStatus(), review.getAuthorizationRequest().getRequestStatusReason(),
                 review.getDecision(), review.getDecisionReason(), review.getDecisionDate(), review.getDecidedBy(),

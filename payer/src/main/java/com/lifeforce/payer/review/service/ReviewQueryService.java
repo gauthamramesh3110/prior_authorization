@@ -28,8 +28,8 @@ public class ReviewQueryService {
     }
 
     @Transactional(readOnly = true)
-    public List<ReviewSummary> getReviews(ReviewStatus status) {
-        return reviewRepository.findByReviewStatusOrderByLastUpdatedAscIdAsc(status).stream()
+    public List<ReviewSummary> getReviews(ReviewStatus reviewStatus) {
+        return reviewRepository.findByReviewStatusOrderByLastUpdatedAscIdAsc(reviewStatus).stream()
                 .map(ReviewSummary::from).toList();
     }
 

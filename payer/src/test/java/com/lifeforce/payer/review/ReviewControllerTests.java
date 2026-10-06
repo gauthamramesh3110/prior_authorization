@@ -13,7 +13,7 @@ import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.domain.Decision;
 import com.lifeforce.payer.review.domain.DecisionActor;
 import com.lifeforce.payer.review.dto.ManualDecisionRequest;
-import com.lifeforce.payer.review.dto.ReviewDecisionResponse;
+import com.lifeforce.payer.review.dto.ManualDecisionResponse;
 import com.lifeforce.payer.review.service.ReviewDecisionService;
 import com.lifeforce.payer.review.service.ReviewEvidenceService;
 import com.lifeforce.payer.review.dto.ReviewDetails;
@@ -295,9 +295,9 @@ class ReviewControllerTests {
                 """.formatted(reviewerId);
     }
 
-    ReviewDecisionResponse decisionResponse(Decision decision) {
+    ManualDecisionResponse decisionResponse(Decision decision) {
         boolean approved = decision == Decision.APPROVED;
-        return new ReviewDecisionResponse(
+        return new ManualDecisionResponse(
                 reviewId, requestId, ReviewStatus.DECIDED,
                 approved ? RequestStatus.APPROVED : RequestStatus.REJECTED,
                 approved ? RequestStatusReason.MANUAL_APPROVED : RequestStatusReason.MANUAL_REJECTED,

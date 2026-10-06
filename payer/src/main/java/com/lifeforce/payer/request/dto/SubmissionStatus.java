@@ -1,5 +1,5 @@
 package com.lifeforce.payer.request.dto;
 
-public enum ResponseStatus {
+public enum SubmissionStatus {
     SUBMITTED
 }

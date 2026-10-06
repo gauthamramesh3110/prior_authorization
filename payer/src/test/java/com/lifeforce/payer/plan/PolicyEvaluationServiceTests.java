@@ -1,7 +1,7 @@
 package com.lifeforce.payer.plan;
 
 import com.lifeforce.payer.plan.domain.policy.*;
-import com.lifeforce.payer.plan.service.PlanEvalService;
+import com.lifeforce.payer.plan.service.PolicyEvaluationService;
 import com.lifeforce.payer.plan.service.PolicyEvaluationResult;
 import com.lifeforce.payer.request.domain.ClinicalJustification;
 import org.junit.jupiter.api.Test;
@@ -16,8 +16,8 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class PlanEvalServiceTests {
-    PlanEvalService planEvalService = new PlanEvalService();
+class PolicyEvaluationServiceTests {
+    PolicyEvaluationService policyEvaluationService = new PolicyEvaluationService();
     Instant submittedAt = Instant.parse("2019-06-01T00:00:00Z");
 
     @ParameterizedTest
@@ -31,7 +31,7 @@ class PlanEvalServiceTests {
                 new ClinicalJustification.ConditionEvidence("CHF", null, Date.from(Instant.parse(start)), null)
         ), List.of());
 
-        assertEquals(expected, planEvalService.evalPolicyForEvidence(conditionPolicy(), evidence, submittedAt));
+        assertEquals(expected, policyEvaluationService.evaluatePolicy(conditionPolicy(), evidence, submittedAt));
     }
 
     @ParameterizedTest
@@ -45,7 +45,7 @@ class PlanEvalServiceTests {
                 new ClinicalJustification.ConditionEvidence("CHF", null, Date.from(submittedAt.minusSeconds(100)), Date.from(Instant.parse(end)))
         ), List.of());
 
-        assertEquals(expected, planEvalService.evalPolicyForEvidence(conditionPolicy(), evidence, submittedAt));
+        assertEquals(expected, policyEvaluationService.evaluatePolicy(conditionPolicy(), evidence, submittedAt));
     }
 
     @ParameterizedTest
@@ -60,7 +60,7 @@ class PlanEvalServiceTests {
         Policy policy = policy(Match.ALL, observationCriterion(operator));
         ClinicalJustification evidence = new ClinicalJustification(null, List.of(), List.of(observation(value, "%", submittedAt)));
 
-        assertEquals(expected, planEvalService.evalPolicyForEvidence(policy, evidence, submittedAt));
+        assertEquals(expected, policyEvaluationService.evaluatePolicy(policy, evidence, submittedAt));
     }
 
     @Test
@@ -71,14 +71,14 @@ class PlanEvalServiceTests {
                 observation("30", "%", submittedAt.plusSeconds(10))
         ));
 
-        assertEquals(PolicyEvaluationResult.CRITERIA_NOT_MET, planEvalService.evalPolicyForEvidence(observationPolicy(), evidence, submittedAt));
+        assertEquals(PolicyEvaluationResult.CRITERIA_NOT_MET, policyEvaluationService.evaluatePolicy(observationPolicy(), evidence, submittedAt));
     }
 
     @Test
     void waitsForEvidenceWhenOnlyObservationIsAfterSubmission() {
         ClinicalJustification evidence = new ClinicalJustification(null, List.of(), List.of(observation("32", "%", submittedAt.plusSeconds(1))));
 
-        assertEquals(PolicyEvaluationResult.AWAITING_EVIDENCE, planEvalService.evalPolicyForEvidence(observationPolicy(), evidence, submittedAt));
+        assertEquals(PolicyEvaluationResult.AWAITING_EVIDENCE, policyEvaluationService.evaluatePolicy(observationPolicy(), evidence, submittedAt));
     }
 
     @Test
@@ -92,7 +92,7 @@ class PlanEvalServiceTests {
         ));
 
         for (ClinicalJustification evidence : List.of(wrongUnit, conflicting, conflictingUnits)) {
-            assertEquals(PolicyEvaluationResult.MANUAL_REVIEW_REQUIRED, planEvalService.evalPolicyForEvidence(observationPolicy(), evidence, submittedAt));
+            assertEquals(PolicyEvaluationResult.MANUAL_REVIEW_REQUIRED, policyEvaluationService.evaluatePolicy(observationPolicy(), evidence, submittedAt));
         }
     }
 
@@ -102,7 +102,7 @@ class PlanEvalServiceTests {
                 observation("35", "%", submittedAt), observation("35.0", "%", submittedAt)
         ));
 
-        assertEquals(PolicyEvaluationResult.MATCHED, planEvalService.evalPolicyForEvidence(observationPolicy(), evidence, submittedAt));
+        assertEquals(PolicyEvaluationResult.MATCHED, policyEvaluationService.evaluatePolicy(observationPolicy(), evidence, submittedAt));
     }
 
     @Test
@@ -113,17 +113,17 @@ class PlanEvalServiceTests {
         ClinicalJustification failedObservation = new ClinicalJustification(null, conditions(), List.of(observation("40", "%", submittedAt)));
         ClinicalJustification matched = new ClinicalJustification(null, conditions(), List.of(observation("35", "%", submittedAt)));
 
-        assertEquals(PolicyEvaluationResult.MATCHED, planEvalService.evalPolicyForEvidence(policy(Match.ANY, condition, observation), missingCondition, submittedAt));
-        assertEquals(PolicyEvaluationResult.AWAITING_EVIDENCE, planEvalService.evalPolicyForEvidence(policy(Match.ALL, condition, observation), missingCondition, submittedAt));
-        assertEquals(PolicyEvaluationResult.CRITERIA_NOT_MET, planEvalService.evalPolicyForEvidence(policy(Match.ALL, condition, observation), failedObservation, submittedAt));
-        assertEquals(PolicyEvaluationResult.MATCHED, planEvalService.evalPolicyForEvidence(policy(Match.ALL, condition, observation), matched, submittedAt));
+        assertEquals(PolicyEvaluationResult.MATCHED, policyEvaluationService.evaluatePolicy(policy(Match.ANY, condition, observation), missingCondition, submittedAt));
+        assertEquals(PolicyEvaluationResult.AWAITING_EVIDENCE, policyEvaluationService.evaluatePolicy(policy(Match.ALL, condition, observation), missingCondition, submittedAt));
+        assertEquals(PolicyEvaluationResult.CRITERIA_NOT_MET, policyEvaluationService.evaluatePolicy(policy(Match.ALL, condition, observation), failedObservation, submittedAt));
+        assertEquals(PolicyEvaluationResult.MATCHED, policyEvaluationService.evaluatePolicy(policy(Match.ALL, condition, observation), matched, submittedAt));
     }
 
     @Test
     void handlesAbsentEvidenceAndNullLists() {
-        assertEquals(PolicyEvaluationResult.AWAITING_EVIDENCE, planEvalService.evalPolicyForEvidence(conditionPolicy(), null, submittedAt));
-        assertEquals(PolicyEvaluationResult.AWAITING_EVIDENCE, planEvalService.evalPolicyForEvidence(conditionPolicy(), new ClinicalJustification(null, null, null), submittedAt));
-        assertEquals(PolicyEvaluationResult.AWAITING_EVIDENCE, planEvalService.evalPolicyForEvidence(observationPolicy(), new ClinicalJustification(null, null, null), submittedAt));
+        assertEquals(PolicyEvaluationResult.AWAITING_EVIDENCE, policyEvaluationService.evaluatePolicy(conditionPolicy(), null, submittedAt));
+        assertEquals(PolicyEvaluationResult.AWAITING_EVIDENCE, policyEvaluationService.evaluatePolicy(conditionPolicy(), new ClinicalJustification(null, null, null), submittedAt));
+        assertEquals(PolicyEvaluationResult.AWAITING_EVIDENCE, policyEvaluationService.evaluatePolicy(observationPolicy(), new ClinicalJustification(null, null, null), submittedAt));
     }
 
     @Test
@@ -133,9 +133,9 @@ class PlanEvalServiceTests {
         ReflectionTestUtils.setField(manual, "reviewMode", ReviewMode.MANUAL_REVIEW);
         Policy invalid = policy(Match.ALL, observationCriterion(PolicyCriterionOperator.PRESENT));
 
-        assertEquals(PolicyEvaluationResult.MANUAL_REVIEW_REQUIRED, planEvalService.evalPolicyForEvidence(null, evidence, submittedAt));
+        assertEquals(PolicyEvaluationResult.MANUAL_REVIEW_REQUIRED, policyEvaluationService.evaluatePolicy(null, evidence, submittedAt));
         for (Policy policy : List.of(policy(Match.ALL), policy(Match.ANY), manual, invalid)) {
-            assertEquals(PolicyEvaluationResult.MANUAL_REVIEW_REQUIRED, planEvalService.evalPolicyForEvidence(policy, evidence, submittedAt));
+            assertEquals(PolicyEvaluationResult.MANUAL_REVIEW_REQUIRED, policyEvaluationService.evaluatePolicy(policy, evidence, submittedAt));
         }
     }
 
@@ -143,7 +143,7 @@ class PlanEvalServiceTests {
     void requestsMissingConditionAndObservationCodes() {
         Policy policy = policy(Match.ALL, conditionCriterion(), observationCriterion(PolicyCriterionOperator.LTE));
 
-        var requestedEvidence = planEvalService.getRequestedEvidence(policy, new ClinicalJustification(null, null, null), submittedAt);
+        var requestedEvidence = policyEvaluationService.getRequestedEvidence(policy, new ClinicalJustification(null, null, null), submittedAt);
 
         assertEquals(List.of("CHF"), requestedEvidence.requestedConditions());
         assertEquals(List.of("EF"), requestedEvidence.requestedObservations());
@@ -156,7 +156,7 @@ class PlanEvalServiceTests {
         Policy policy = policy(Match.ANY, conditionCriterion(), observationCriterion(PolicyCriterionOperator.LTE), missingObservation);
         ClinicalJustification evidence = new ClinicalJustification(null, conditions(), List.of(observation("40", "%", submittedAt)));
 
-        var requestedEvidence = planEvalService.getRequestedEvidence(policy, evidence, submittedAt);
+        var requestedEvidence = policyEvaluationService.getRequestedEvidence(policy, evidence, submittedAt);
 
         assertEquals(List.of(), requestedEvidence.requestedConditions());
         assertEquals(List.of("WEIGHT"), requestedEvidence.requestedObservations());
@@ -167,8 +167,8 @@ class PlanEvalServiceTests {
         Policy policy = observationPolicy();
         ClinicalJustification evidence = new ClinicalJustification(null, null, List.of(observation("35", "%", submittedAt.plusSeconds(1))));
 
-        assertEquals(List.of("EF"), planEvalService.getRequestedEvidence(policy, evidence, submittedAt).requestedObservations());
-        assertEquals(List.of(), planEvalService.getRequestedEvidence(policy, evidence, submittedAt.plusSeconds(1)).requestedObservations());
+        assertEquals(List.of("EF"), policyEvaluationService.getRequestedEvidence(policy, evidence, submittedAt).requestedObservations());
+        assertEquals(List.of(), policyEvaluationService.getRequestedEvidence(policy, evidence, submittedAt.plusSeconds(1)).requestedObservations());
     }
 
     Policy conditionPolicy() {

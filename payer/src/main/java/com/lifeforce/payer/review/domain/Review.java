@@ -52,7 +52,7 @@ public class Review {
     @JoinColumn(name = "request_id", insertable = false, updatable = false, nullable = false)
     AuthorizationRequest authorizationRequest;
 
-    public static Review createNewReview(
+    public static Review createNewEvaluationReview(
             UUID requestId,
             Clock clock
     ) {

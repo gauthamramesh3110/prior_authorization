@@ -83,11 +83,11 @@ class RequestQueryServiceTests {
         AuthorizationRequest submitted = request();
         AuthorizationRequest awaiting = request();
         awaiting.updateStatusToAwaitingEvidence();
-        Review awaitingReview = Review.createNewReview(awaiting.getId(), clock);
+        Review awaitingReview = Review.createNewEvaluationReview(awaiting.getId(), clock);
         awaitingReview.updateStatusToAwaitingEvidence(clock);
         AuthorizationRequest approved = request();
         approved.updateStatusToAutoApproved();
-        Review approvedReview = Review.createNewReview(approved.getId(), clock);
+        Review approvedReview = Review.createNewEvaluationReview(approved.getId(), clock);
         approvedReview.updateStatusToAutoApproved(5, clock);
         List<AuthorizationRequest> requests = List.of(submitted, awaiting, approved);
         List<UUID> requestIds = requests.stream().map(AuthorizationRequest::getId).toList();

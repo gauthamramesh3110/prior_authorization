@@ -305,7 +305,7 @@ class EvidenceSubmissionServiceTests {
     Review givenAwaitingReview() {
         AuthorizationRequest request = createRequest();
         request.updateStatusToAwaitingEvidence();
-        Review review = Review.createNewReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
+        Review review = Review.createNewEvaluationReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
         review.updateStatusToAwaitingEvidence(Clock.fixed(submittedAt, ZoneOffset.UTC));
         ReflectionTestUtils.setField(review, "authorizationRequest", request);
         when(authorizationRequestRepository.findById(request.getId())).thenReturn(Optional.of(request));

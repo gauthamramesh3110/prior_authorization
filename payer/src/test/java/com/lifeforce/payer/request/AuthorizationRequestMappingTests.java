@@ -3,7 +3,7 @@ package com.lifeforce.payer.request;
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.dto.ClinicalJustification;
-import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
+import com.lifeforce.payer.request.dto.AuthorizationSubmission;
 import com.lifeforce.payer.request.dto.RequestedService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -20,7 +20,7 @@ class AuthorizationRequestMappingTests {
 
     @Test
     void mapsSubmissionIntoDomainValuesWithOriginalRequestFields() {
-        HttpAuthorizationRequest submission = new HttpAuthorizationRequest(
+        AuthorizationSubmission submission = new AuthorizationSubmission(
                 UUID.randomUUID(), Instant.parse("2019-06-01T00:00:00Z"),
                 UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 objectMapper.readValue(requestedServiceJson(), RequestedService.class),

@@ -14,9 +14,9 @@ import com.lifeforce.payer.request.domain.Coverage;
 import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.domain.RequestStatusReason;
 import com.lifeforce.payer.request.dto.ClinicalJustification;
-import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
+import com.lifeforce.payer.request.dto.AuthorizationSubmission;
 import com.lifeforce.payer.request.dto.RequestedService;
-import com.lifeforce.payer.request.dto.ResponseStatus;
+import com.lifeforce.payer.request.dto.SubmissionStatus;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.request.repository.CoverageRepository;
 import com.lifeforce.payer.request.service.AuthorizationRequestService;
@@ -78,15 +78,15 @@ class AuthorizationRequestServiceTests {
 
     @Test
     void savesValidRequestAsSubmitted() {
-        HttpAuthorizationRequest request = request("PA");
+        AuthorizationSubmission request = request("PA");
         givenValidReferences();
 
-        var response = authorizationRequestService.createAuthorizationRequest(request);
+        var response = authorizationRequestService.submitAuthorizationRequest(request);
 
         ArgumentCaptor<AuthorizationRequest> savedRequest = ArgumentCaptor.forClass(AuthorizationRequest.class);
         verify(authorizationRequestRepository).save(savedRequest.capture());
         assertEquals(request.requestId(), response.requestId());
-        assertEquals(ResponseStatus.SUBMITTED, response.responseStatus());
+        assertEquals(SubmissionStatus.SUBMITTED, response.responseStatus());
         assertEquals(request.requestId(), savedRequest.getValue().getId());
         assertEquals(RequestStatus.SUBMITTED, savedRequest.getValue().getRequestStatus());
         assertEquals(request.requestedService().toDomain(), savedRequest.getValue().getRequestedService());
@@ -96,11 +96,11 @@ class AuthorizationRequestServiceTests {
 
     @Test
     void rejectsDuplicateBeforeCheckingReferencesOrSaving() {
-        HttpAuthorizationRequest request = request("PA");
+        AuthorizationSubmission request = request("PA");
         when(authorizationRequestRepository.existsById(request.requestId())).thenReturn(true);
 
         ResponseStatusException failure = assertThrows(ResponseStatusException.class, () ->
-                authorizationRequestService.createAuthorizationRequest(request)
+                authorizationRequestService.submitAuthorizationRequest(request)
         );
 
         assertEquals(HttpStatus.BAD_REQUEST, failure.getStatusCode());
@@ -328,7 +328,7 @@ class AuthorizationRequestServiceTests {
 
     void assertMalformedRequest(String message) {
         ResponseStatusException failure = assertThrows(ResponseStatusException.class, () ->
-                authorizationRequestService.createAuthorizationRequest(request("PA"))
+                authorizationRequestService.submitAuthorizationRequest(request("PA"))
         );
         assertEquals(HttpStatus.BAD_REQUEST, failure.getStatusCode());
         assertEquals(message, failure.getReason());
@@ -336,8 +336,8 @@ class AuthorizationRequestServiceTests {
         assertNoReview();
     }
 
-    HttpAuthorizationRequest request(String code) {
-        return new HttpAuthorizationRequest(
+    AuthorizationSubmission request(String code) {
+        return new AuthorizationSubmission(
                 UUID.randomUUID(), submittedAt, patientId, providerId, organizationId, planId,
                 new RequestedService(code, null, null, Date.from(submittedAt), 5),
                 new ClinicalJustification(null, List.of(), List.of())

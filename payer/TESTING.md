@@ -2,7 +2,7 @@
 
 Keep unit tests only in this repository for now. Tests run without PostgreSQL or a Spring application context.
 
-Service tests instantiate the service directly and mock its dependencies. They test reference checks, coverage and network boundaries, status transitions, and the request and review records passed to repositories. Review service tests mock the policy evaluator; clinical criteria are tested separately in `PlanEvalServiceTests`.
+Service tests instantiate the service directly and mock its dependencies. They test reference checks, coverage and network boundaries, status transitions, and the request and review records passed to repositories. Review service tests mock the policy evaluator; clinical criteria are tested separately in `PolicyEvaluationServiceTests`.
 
 Manual decision service tests mock repositories and check approvals, rejections, quantity rules, state guards, response fields, repeat decisions, and persistence failures.
 

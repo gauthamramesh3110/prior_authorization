@@ -11,7 +11,7 @@ import com.lifeforce.payer.review.domain.DecisionActor;
 import com.lifeforce.payer.review.domain.Review;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.dto.ManualDecisionRequest;
-import com.lifeforce.payer.review.dto.ReviewDecisionResponse;
+import com.lifeforce.payer.review.dto.ManualDecisionResponse;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import com.lifeforce.payer.review.service.ReviewDecisionService;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,7 +59,7 @@ class ReviewDecisionServiceTests {
     void approvesUpToRequestedQuantityAndRecordsReviewer(Integer quantity) {
         Review review = givenManualReview();
 
-        ReviewDecisionResponse response = reviewDecisionService.submitManualDecision(review.getId(), decision(Decision.APPROVED, quantity));
+        ManualDecisionResponse response = reviewDecisionService.submitManualDecision(review.getId(), decision(Decision.APPROVED, quantity));
 
         assertEquals(ReviewStatus.DECIDED, review.getReviewStatus());
         assertEquals(RequestStatus.APPROVED, review.getAuthorizationRequest().getRequestStatus());
@@ -81,7 +81,7 @@ class ReviewDecisionServiceTests {
     void rejectsReviewWithoutQuantityOrValidityDates() {
         Review review = givenManualReview();
 
-        ReviewDecisionResponse response = reviewDecisionService.submitManualDecision(review.getId(), decision(Decision.REJECTED, null));
+        ManualDecisionResponse response = reviewDecisionService.submitManualDecision(review.getId(), decision(Decision.REJECTED, null));
 
         assertEquals(ReviewStatus.DECIDED, review.getReviewStatus());
         assertEquals(RequestStatus.REJECTED, review.getAuthorizationRequest().getRequestStatus());
@@ -248,7 +248,7 @@ class ReviewDecisionServiceTests {
         verifyNoInteractions(authorizationRequestRepository);
     }
 
-    void assertResponseMatchesReview(ReviewDecisionResponse response, Review review) {
+    void assertResponseMatchesReview(ManualDecisionResponse response, Review review) {
         assertEquals(review.getId(), response.id());
         assertEquals(review.getRequestId(), response.requestId());
         assertEquals(ReviewStatus.DECIDED, response.reviewStatus());

@@ -4,7 +4,7 @@ import com.lifeforce.payer.plan.domain.plan.CodeType;
 import com.lifeforce.payer.plan.domain.plan.PlanService;
 import com.lifeforce.payer.plan.service.PolicyEvaluationResult;
 import com.lifeforce.payer.plan.repository.PlanServiceRepository;
-import com.lifeforce.payer.plan.service.PlanEvalService;
+import com.lifeforce.payer.plan.service.PolicyEvaluationService;
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import com.lifeforce.payer.request.domain.RequestedService;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
@@ -21,13 +21,13 @@ import java.util.UUID;
 @Service
 public class ReviewService {
 
-    private final PlanEvalService planEvalService;
+    private final PolicyEvaluationService policyEvaluationService;
     private final ReviewRepository reviewRepository;
     private final PlanServiceRepository planServiceRepository;
     private final Clock clock;
     private final AuthorizationRequestRepository authorizationRequestRepository;
-    public ReviewService(PlanEvalService planEvalService, ReviewRepository reviewRepository, PlanServiceRepository planServiceRepository, AuthorizationRequestRepository authorizationRequestRepository, Clock clock) {
-        this.planEvalService = planEvalService;
+    public ReviewService(PolicyEvaluationService policyEvaluationService, ReviewRepository reviewRepository, PlanServiceRepository planServiceRepository, AuthorizationRequestRepository authorizationRequestRepository, Clock clock) {
+        this.policyEvaluationService = policyEvaluationService;
         this.reviewRepository = reviewRepository;
         this.planServiceRepository = planServiceRepository;
         this.clock = clock;
@@ -55,7 +55,7 @@ public class ReviewService {
             return;
         }
 
-        PolicyEvaluationResult result = planEvalService.evalPolicyForEvidence(planService.get().getPolicy(), authorizationRequest.getClinicalJustification(), authorizationRequest.getEvidenceEvaluationAt());
+        PolicyEvaluationResult result = policyEvaluationService.evaluatePolicy(planService.get().getPolicy(), authorizationRequest.getClinicalJustification(), authorizationRequest.getEvidenceEvaluationAt());
         if (result == PolicyEvaluationResult.MATCHED) {
             authorizationRequest.updateStatusToAutoApproved();
             currentReview.updateStatusToAutoApproved(requestedService.quantity(), clock);
@@ -64,7 +64,7 @@ public class ReviewService {
         }
         if (result == PolicyEvaluationResult.AWAITING_EVIDENCE) {
             authorizationRequest.updateStatusToAwaitingEvidence();
-            currentReview.requestEvidence(planEvalService.getRequestedEvidence(
+            currentReview.requestEvidence(policyEvaluationService.getRequestedEvidence(
                     planService.get().getPolicy(), authorizationRequest.getClinicalJustification(), authorizationRequest.getEvidenceEvaluationAt()
             ), clock);
             saveReview(currentReview);

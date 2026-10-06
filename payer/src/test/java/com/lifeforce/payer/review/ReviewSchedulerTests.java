@@ -23,8 +23,8 @@ class ReviewSchedulerTests {
 
     @Test
     void evaluatesPendingReviewIdsInRepositoryOrder() {
-        Review firstReview = Review.createNewReview(UUID.randomUUID(), Clock.systemUTC());
-        Review secondReview = Review.createNewReview(UUID.randomUUID(), Clock.systemUTC());
+        Review firstReview = Review.createNewEvaluationReview(UUID.randomUUID(), Clock.systemUTC());
+        Review secondReview = Review.createNewEvaluationReview(UUID.randomUUID(), Clock.systemUTC());
         when(reviewRepository.findByReviewStatusOrderByLastUpdatedAsc(ReviewStatus.PENDING_EVALUATION)).thenReturn(List.of(firstReview, secondReview));
         ReviewScheduler scheduler = new ReviewScheduler(reviewRepository, reviewService);
 
@@ -38,8 +38,8 @@ class ReviewSchedulerTests {
 
     @Test
     void continuesEvaluatingWhenOneReviewFails() {
-        Review firstReview = Review.createNewReview(UUID.randomUUID(), Clock.systemUTC());
-        Review secondReview = Review.createNewReview(UUID.randomUUID(), Clock.systemUTC());
+        Review firstReview = Review.createNewEvaluationReview(UUID.randomUUID(), Clock.systemUTC());
+        Review secondReview = Review.createNewEvaluationReview(UUID.randomUUID(), Clock.systemUTC());
         when(reviewRepository.findByReviewStatusOrderByLastUpdatedAsc(ReviewStatus.PENDING_EVALUATION)).thenReturn(List.of(firstReview, secondReview));
         doThrow(new IllegalStateException("Review failed")).when(reviewService).evaluateReview(firstReview.getId());
         ReviewScheduler scheduler = new ReviewScheduler(reviewRepository, reviewService);

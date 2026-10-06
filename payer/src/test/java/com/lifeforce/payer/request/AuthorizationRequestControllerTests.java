@@ -1,9 +1,9 @@
 package com.lifeforce.payer.request;
 
 import com.lifeforce.payer.request.controller.AuthorizationRequestController;
-import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
-import com.lifeforce.payer.request.dto.HttpAuthorizationResponse;
-import com.lifeforce.payer.request.dto.ResponseStatus;
+import com.lifeforce.payer.request.dto.AuthorizationSubmission;
+import com.lifeforce.payer.request.dto.AuthorizationSubmissionResponse;
+import com.lifeforce.payer.request.dto.SubmissionStatus;
 import com.lifeforce.payer.request.service.AuthorizationRequestService;
 import com.lifeforce.payer.request.service.EvidenceSubmissionService;
 import com.lifeforce.payer.request.service.RequestQueryService;
@@ -60,8 +60,8 @@ class AuthorizationRequestControllerTests {
 
     @Test
     void returnsCreatedForSubmittedRequest() throws Exception {
-        when(authorizationRequestService.createAuthorizationRequest(any())).thenReturn(
-                new HttpAuthorizationResponse(requestId, ResponseStatus.SUBMITTED, "Request has been submitted")
+        when(authorizationRequestService.submitAuthorizationRequest(any())).thenReturn(
+                new AuthorizationSubmissionResponse(requestId, SubmissionStatus.SUBMITTED, "Request has been submitted")
         );
 
         mockMvc.perform(post("/api/v1/requests").contentType(MediaType.APPLICATION_JSON).content(requestBody()))
@@ -69,15 +69,15 @@ class AuthorizationRequestControllerTests {
                 .andExpect(jsonPath("$.requestId").value(requestId.toString()))
                 .andExpect(jsonPath("$.responseStatus").value("SUBMITTED"));
 
-        ArgumentCaptor<HttpAuthorizationRequest> request = ArgumentCaptor.forClass(HttpAuthorizationRequest.class);
-        verify(authorizationRequestService).createAuthorizationRequest(request.capture());
+        ArgumentCaptor<AuthorizationSubmission> request = ArgumentCaptor.forClass(AuthorizationSubmission.class);
+        verify(authorizationRequestService).submitAuthorizationRequest(request.capture());
         assertEquals(requestId, request.getValue().requestId());
     }
 
     @ParameterizedTest
     @EnumSource(value = HttpStatus.class, names = {"BAD_REQUEST", "CONFLICT"})
     void returnsStatusFromServiceException(HttpStatus failureStatus) throws Exception {
-        when(authorizationRequestService.createAuthorizationRequest(any()))
+        when(authorizationRequestService.submitAuthorizationRequest(any()))
                 .thenThrow(new ResponseStatusException(failureStatus, "Rejected"));
 
         mockMvc.perform(post("/api/v1/requests").contentType(MediaType.APPLICATION_JSON).content(requestBody()))
@@ -142,16 +142,16 @@ class AuthorizationRequestControllerTests {
 
     @Test
     void passesDecimalObservationToServiceWithoutRounding() throws Exception {
-        when(authorizationRequestService.createAuthorizationRequest(any())).thenReturn(
-                new HttpAuthorizationResponse(requestId, ResponseStatus.SUBMITTED, "Submitted")
+        when(authorizationRequestService.submitAuthorizationRequest(any())).thenReturn(
+                new AuthorizationSubmissionResponse(requestId, SubmissionStatus.SUBMITTED, "Submitted")
         );
         String body = requestBody().replace("\"observations\":[]", "\"observations\":[{\"code\":\"EF\",\"value\":35.1,\"units\":\"%\",\"recordedAt\":\"2019-06-01T00:00:00Z\"}]");
 
         mockMvc.perform(post("/api/v1/requests").contentType(MediaType.APPLICATION_JSON).content(body))
                 .andExpect(status().isCreated());
 
-        ArgumentCaptor<HttpAuthorizationRequest> request = ArgumentCaptor.forClass(HttpAuthorizationRequest.class);
-        verify(authorizationRequestService).createAuthorizationRequest(request.capture());
+        ArgumentCaptor<AuthorizationSubmission> request = ArgumentCaptor.forClass(AuthorizationSubmission.class);
+        verify(authorizationRequestService).submitAuthorizationRequest(request.capture());
         assertEquals(new BigDecimal("35.1"), request.getValue().clinicalJustification().observations().getFirst().value());
     }
 

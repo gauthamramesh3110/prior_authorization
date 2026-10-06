@@ -7,7 +7,7 @@ import com.lifeforce.payer.review.domain.Decision;
 import com.lifeforce.payer.review.domain.Review;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.dto.ManualDecisionRequest;
-import com.lifeforce.payer.review.dto.ReviewDecisionResponse;
+import com.lifeforce.payer.review.dto.ManualDecisionResponse;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
@@ -30,7 +30,7 @@ public class ReviewDecisionService {
     }
 
     @Transactional
-    public ReviewDecisionResponse submitManualDecision(UUID reviewId, ManualDecisionRequest decisionRequest) {
+    public ManualDecisionResponse submitManualDecision(UUID reviewId, ManualDecisionRequest decisionRequest) {
         Review review = reviewRepository.findById(reviewId).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Review does not exist")
         );
@@ -55,6 +55,6 @@ public class ReviewDecisionService {
         review.updateStatusToManuallyDecided(decisionRequest.decision(), decisionRequest.decisionReason(), decisionRequest.reviewerId(), decisionRequest.approvedQuantity(), clock);
         authorizationRequestRepository.save(request);
         reviewRepository.save(review);
-        return ReviewDecisionResponse.from(review);
+        return ManualDecisionResponse.from(review);
     }
 }

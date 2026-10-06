@@ -2,9 +2,9 @@ package com.lifeforce.payer.request.dto;
 
 import java.util.UUID;
 
-public record HttpAuthorizationResponse(
+public record AuthorizationSubmissionResponse(
         UUID requestId,
-        ResponseStatus responseStatus,
+        SubmissionStatus responseStatus,
         String message
 ) {
 }

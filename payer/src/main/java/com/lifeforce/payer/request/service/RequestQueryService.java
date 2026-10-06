@@ -32,13 +32,13 @@ public class RequestQueryService {
     }
 
     @Transactional(readOnly = true)
-    public List<RequestSummary> getProviderRequests(UUID providerId, RequestStatus status) {
+    public List<RequestSummary> getProviderRequests(UUID providerId, RequestStatus requestStatus) {
         if (!providerRepository.existsById(providerId)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Provider does not exist");
         }
-        List<AuthorizationRequest> requests = status == null
+        List<AuthorizationRequest> requests = requestStatus == null
                 ? authorizationRequestRepository.findByProviderIdOrderBySubmittedAtDescIdAsc(providerId)
-                : authorizationRequestRepository.findByProviderIdAndRequestStatusOrderBySubmittedAtDescIdAsc(providerId, status);
+                : authorizationRequestRepository.findByProviderIdAndRequestStatusOrderBySubmittedAtDescIdAsc(providerId, requestStatus);
         if (requests.isEmpty()) {
             return List.of();
         }
