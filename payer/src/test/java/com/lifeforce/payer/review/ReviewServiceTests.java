@@ -16,9 +16,7 @@ import com.lifeforce.payer.review.domain.DecisionActor;
 import com.lifeforce.payer.review.domain.Review;
 import com.lifeforce.payer.review.domain.RequestedEvidence;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
-import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import com.lifeforce.payer.review.service.ReviewService;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +25,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -48,7 +45,6 @@ import static org.mockito.Mockito.*;
 class ReviewServiceTests {
     @Mock PlanEvalService planEvalService;
     @Mock ReviewRepository reviewRepository;
-    @Mock ReviewHistoryRepository reviewHistoryRepository;
     @Mock PlanServiceRepository planServiceRepository;
     @Mock AuthorizationRequestRepository authorizationRequestRepository;
 
@@ -58,7 +54,7 @@ class ReviewServiceTests {
 
     @BeforeEach
     void createService() {
-        reviewService = new ReviewService(planEvalService, reviewRepository, reviewHistoryRepository, planServiceRepository, authorizationRequestRepository, clock);
+        reviewService = new ReviewService(planEvalService, reviewRepository, planServiceRepository, authorizationRequestRepository, clock);
     }
 
     @Test
@@ -66,7 +62,7 @@ class ReviewServiceTests {
         reviewService.evaluateReview(UUID.randomUUID());
 
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(planServiceRepository, planEvalService, reviewHistoryRepository, authorizationRequestRepository);
+        verifyNoInteractions(planServiceRepository, planEvalService, authorizationRequestRepository);
     }
 
     @ParameterizedTest
@@ -79,7 +75,7 @@ class ReviewServiceTests {
 
         assertEquals(status, review.getReviewStatus());
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(planServiceRepository, planEvalService, reviewHistoryRepository, authorizationRequestRepository);
+        verifyNoInteractions(planServiceRepository, planEvalService, authorizationRequestRepository);
     }
 
     @Test
@@ -96,7 +92,6 @@ class ReviewServiceTests {
         assertEquals(clock.instant(), review.getDecisionDate());
         assertEquals(clock.instant(), review.getValidFrom());
         assertEquals(clock.instant().plus(30, ChronoUnit.DAYS), review.getValidTo());
-        assertSavedHistory(review);
     }
 
     @ParameterizedTest
@@ -117,7 +112,6 @@ class ReviewServiceTests {
         assertNull(review.getApprovedQuantity());
         assertNull(review.getValidFrom());
         assertNull(review.getValidTo());
-        assertSavedHistory(review);
     }
 
     @Test
@@ -129,7 +123,6 @@ class ReviewServiceTests {
         assertOutcome(review, ReviewStatus.PENDING_MANUAL_REVIEW, RequestStatus.PENDING, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
         verify(planServiceRepository).findByPlanIdAndCodeAndCodeType(review.getAuthorizationRequest().getPlanId(), "PA", CodeType.PROCEDURE);
         verifyNoInteractions(planEvalService);
-        assertSavedHistory(review);
     }
 
     @Test
@@ -140,11 +133,10 @@ class ReviewServiceTests {
         reviewService.evaluateReview(review.getId());
 
         assertOutcome(review, ReviewStatus.PENDING_MANUAL_REVIEW, RequestStatus.PENDING, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
-        assertSavedHistory(review);
     }
 
     @Test
-    void doesNotEvaluateOrWriteHistoryAgainAfterApproval() {
+    void doesNotEvaluateOrSaveAgainAfterApproval() {
         Review review = givenPendingReview();
         Policy policy = new Policy();
         givenPolicyResult(review, policy, PolicyEvaluationResult.MATCHED);
@@ -154,7 +146,6 @@ class ReviewServiceTests {
 
         verify(planEvalService).evalPolicyForEvidence(policy, review.getAuthorizationRequest().getClinicalJustification(), submittedAt);
         assertOutcome(review, ReviewStatus.DECIDED, RequestStatus.APPROVED, RequestStatusReason.AUTO_APPROVED);
-        assertSavedHistory(review);
     }
 
     @Test
@@ -174,22 +165,21 @@ class ReviewServiceTests {
         verify(planEvalService).evalPolicyForEvidence(policy, request.getClinicalJustification(), clock.instant());
         assertEquals(submittedAt, request.getSubmittedAt());
         assertOutcome(review, ReviewStatus.DECIDED, RequestStatus.APPROVED, RequestStatusReason.AUTO_APPROVED);
-        assertSavedHistory(review);
     }
 
     @Test
-    void doesNotWriteHistoryWhenReviewSaveFails() {
+    void propagatesReviewSaveFailure() {
         Review review = givenPendingReview();
         givenPolicyResult(review, new Policy(), PolicyEvaluationResult.MATCHED);
         IllegalStateException failure = new IllegalStateException("Review unavailable");
         doThrow(failure).when(reviewRepository).save(review);
 
         assertSame(failure, assertThrows(IllegalStateException.class, () -> reviewService.evaluateReview(review.getId())));
-        verifyNoInteractions(reviewHistoryRepository);
+        verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
     }
 
     @Test
-    void savesStructuredMissingEvidenceWithTheReviewAndHistory() {
+    void savesStructuredMissingEvidenceWithTheReview() {
         Review review = givenPendingReview();
         Policy policy = new Policy();
         givenPolicyResult(review, policy, PolicyEvaluationResult.AWAITING_EVIDENCE);
@@ -200,11 +190,10 @@ class ReviewServiceTests {
         assertEquals(List.of("EF"), review.getEvidenceRequest().requestedObservations());
         verify(planEvalService).getRequestedEvidence(policy, review.getAuthorizationRequest().getClinicalJustification(), submittedAt);
         assertOutcome(review, ReviewStatus.AWAITING_EVIDENCE, RequestStatus.PENDING, RequestStatusReason.AWAITING_EVIDENCE);
-        assertSavedHistory(review);
     }
 
     @Test
-    void doesNotSaveReviewOrHistoryWhenRequestSaveFails() {
+    void doesNotSaveReviewWhenRequestSaveFails() {
         Review review = givenPendingReview();
         givenPolicyResult(review, new Policy(), PolicyEvaluationResult.MATCHED);
         IllegalStateException failure = new IllegalStateException("Request unavailable");
@@ -212,7 +201,6 @@ class ReviewServiceTests {
 
         assertSame(failure, assertThrows(IllegalStateException.class, () -> reviewService.evaluateReview(review.getId())));
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(reviewHistoryRepository);
     }
 
     Review givenPendingReview() {
@@ -247,21 +235,5 @@ class ReviewServiceTests {
         assertEquals(clock.instant(), review.getLastUpdated());
         verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
         verify(reviewRepository).save(review);
-    }
-
-    void assertSavedHistory(Review review) {
-        ArgumentCaptor<ReviewHistory> savedHistory = ArgumentCaptor.forClass(ReviewHistory.class);
-        verify(reviewHistoryRepository).save(savedHistory.capture());
-        ReviewHistory history = savedHistory.getValue();
-        assertEquals(review.getId(), history.getReviewId());
-        assertEquals("SYSTEM", history.getEventSource());
-        assertEquals(review.getAuthorizationRequest().getRequestStatusReason().name(), history.getEventType());
-        assertEquals(clock.instant(), history.getEventAt());
-        assertEquals(review.getReviewStatus(), history.getEventPayload().get("reviewStatus"));
-        assertEquals(review.getAuthorizationRequest().getRequestStatus(), history.getEventPayload().get("requestStatus"));
-        assertEquals(review.getAuthorizationRequest().getRequestStatusReason(), history.getEventPayload().get("statusReason"));
-        assertEquals(review.getDecision(), history.getEventPayload().get("decision"));
-        assertEquals(review.getApprovedQuantity(), history.getEventPayload().get("approvedQuantity"));
-        assertEquals(review.getEvidenceRequest(), history.getEventPayload().get("evidenceRequest"));
     }
 }

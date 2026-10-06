@@ -68,7 +68,7 @@ class EvidenceSubmissionControllerTests {
     @EnumSource(value = ReviewStatus.class, names = {"PENDING_EVALUATION", "PENDING_MANUAL_REVIEW"})
     void submitsEvidenceAndReturnsQueuedReviewStatus(ReviewStatus reviewStatus) throws Exception {
         EvidenceSubmissionResponse response = new EvidenceSubmissionResponse(
-                UUID.randomUUID(), requestId, UUID.randomUUID(), providerId, reviewStatus,
+                requestId, UUID.randomUUID(), providerId, reviewStatus,
                 RequestStatus.PENDING, RequestStatusReason.EVIDENCE_UPDATED, evidenceUpdatedAt
         );
         when(evidenceSubmissionService.submitEvidence(eq(requestId), any())).thenReturn(response);
@@ -76,7 +76,7 @@ class EvidenceSubmissionControllerTests {
         mockMvc.perform(patch("/api/v1/requests/{id}/evidence", requestId)
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(response.id().toString()))
+                .andExpect(jsonPath("$.id").doesNotExist())
                 .andExpect(jsonPath("$.requestId").value(requestId.toString()))
                 .andExpect(jsonPath("$.reviewId").value(response.reviewId().toString()))
                 .andExpect(jsonPath("$.providerId").value(providerId.toString()))

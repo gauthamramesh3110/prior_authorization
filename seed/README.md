@@ -19,6 +19,6 @@ Dates are not shifted. Coverage years are inclusive in the source: 2018-2020 bec
 
 For the demo, organizations seen in Humana-paid encounters are marked in-network. Other related organizations are marked out-of-network. Each row starts at the earliest selected coverage year and has no end date. This is a fixed demo assumption, not historical contract data.
 
-Only reference and configuration tables are loaded. Requests, reviews, and history are preserved. Conditions and observations remain in the CSVs for building request evidence later.
+Only reference and configuration tables are loaded. Requests and reviews are preserved. Conditions and observations remain in the CSVs for building request evidence later.
 
 All inserts run in one transaction. Repeating the seed skips existing reference rows and refreshes policy, criterion, and service configuration. Removed configuration rows are not automatically deleted; use a new policy name when removing criteria from an existing policy. Python exceptions are shown directly rather than handled by custom recovery logic.

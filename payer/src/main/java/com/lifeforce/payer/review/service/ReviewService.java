@@ -9,9 +9,7 @@ import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import com.lifeforce.payer.request.domain.RequestedService;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.review.domain.Review;
-import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
@@ -25,14 +23,12 @@ public class ReviewService {
 
     private final PlanEvalService planEvalService;
     private final ReviewRepository reviewRepository;
-    private final ReviewHistoryRepository reviewHistoryRepository;
     private final PlanServiceRepository planServiceRepository;
     private final Clock clock;
     private final AuthorizationRequestRepository authorizationRequestRepository;
-    public ReviewService(PlanEvalService planEvalService, ReviewRepository reviewRepository, ReviewHistoryRepository reviewHistoryRepository, PlanServiceRepository planServiceRepository, AuthorizationRequestRepository authorizationRequestRepository, Clock clock) {
+    public ReviewService(PlanEvalService planEvalService, ReviewRepository reviewRepository, PlanServiceRepository planServiceRepository, AuthorizationRequestRepository authorizationRequestRepository, Clock clock) {
         this.planEvalService = planEvalService;
         this.reviewRepository = reviewRepository;
-        this.reviewHistoryRepository = reviewHistoryRepository;
         this.planServiceRepository = planServiceRepository;
         this.clock = clock;
         this.authorizationRequestRepository = authorizationRequestRepository;
@@ -87,6 +83,5 @@ public class ReviewService {
     private void saveReview(Review review) {
         authorizationRequestRepository.save(review.getAuthorizationRequest());
         reviewRepository.save(review);
-        reviewHistoryRepository.save(ReviewHistory.createSystemEvent(review));
     }
 }

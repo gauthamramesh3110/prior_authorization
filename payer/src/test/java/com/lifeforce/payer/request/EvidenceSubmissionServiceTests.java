@@ -11,9 +11,7 @@ import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.request.service.EvidenceSubmissionService;
 import com.lifeforce.payer.review.domain.Review;
 import com.lifeforce.payer.review.domain.RequestedEvidence;
-import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -22,7 +20,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -45,7 +42,6 @@ import static org.mockito.Mockito.*;
 class EvidenceSubmissionServiceTests {
     @Mock AuthorizationRequestRepository authorizationRequestRepository;
     @Mock ReviewRepository reviewRepository;
-    @Mock ReviewHistoryRepository reviewHistoryRepository;
 
     EvidenceSubmissionService evidenceSubmissionService;
     UUID providerId = UUID.randomUUID();
@@ -54,7 +50,7 @@ class EvidenceSubmissionServiceTests {
 
     @BeforeEach
     void createService() {
-        evidenceSubmissionService = new EvidenceSubmissionService(authorizationRequestRepository, reviewRepository, reviewHistoryRepository, clock);
+        evidenceSubmissionService = new EvidenceSubmissionService(authorizationRequestRepository, reviewRepository, clock);
     }
 
     @Test
@@ -89,16 +85,6 @@ class EvidenceSubmissionServiceTests {
         assertNull(review.getDecision());
         verify(authorizationRequestRepository).save(request);
         verify(reviewRepository).save(review);
-        ReviewHistory history = capturedHistory();
-        assertEquals("PROVIDER", history.getEventSource());
-        assertEquals("UPDATED_EVIDENCE", history.getEventType());
-        assertEquals(review.getId(), history.getReviewId());
-        assertEquals(clock.instant(), history.getEventAt());
-        assertEquals(providerId, history.getEventPayload().get("providerId"));
-        assertEquals(additions.toDomain(), history.getEventPayload().get("clinicalJustification"));
-        assertEquals(ReviewStatus.PENDING_EVALUATION, history.getEventPayload().get("reviewStatus"));
-        assertEquals(RequestStatusReason.EVIDENCE_UPDATED, history.getEventPayload().get("statusReason"));
-        assertEquals(history.getId(), response.id());
         assertEquals(request.getId(), response.requestId());
         assertEquals(review.getId(), response.reviewId());
         assertEquals(providerId, response.providerId());
@@ -124,7 +110,6 @@ class EvidenceSubmissionServiceTests {
         assertNull(review.getApprovedQuantity());
         assertNull(review.getValidFrom());
         assertNull(review.getValidTo());
-        assertEquals(ReviewStatus.PENDING_MANUAL_REVIEW, capturedHistory().getEventPayload().get("reviewStatus"));
     }
 
     @Test
@@ -174,7 +159,7 @@ class EvidenceSubmissionServiceTests {
         );
 
         assertEquals(HttpStatus.NOT_FOUND, failure.getStatusCode());
-        verifyNoInteractions(reviewRepository, reviewHistoryRepository);
+        verifyNoInteractions(reviewRepository);
         verify(authorizationRequestRepository, never()).save(any());
     }
 
@@ -189,7 +174,7 @@ class EvidenceSubmissionServiceTests {
 
         assertEquals(HttpStatus.FORBIDDEN, failure.getStatusCode());
         assertNull(request.getEvidenceUpdatedAt());
-        verifyNoInteractions(reviewRepository, reviewHistoryRepository);
+        verifyNoInteractions(reviewRepository);
         verify(authorizationRequestRepository, never()).save(any());
     }
 
@@ -269,13 +254,12 @@ class EvidenceSubmissionServiceTests {
 
         assertEquals(HttpStatus.CONFLICT, failure.getStatusCode());
         assertEquals(2, review.getAuthorizationRequest().getClinicalJustification().observations().size());
-        verify(reviewHistoryRepository).save(any());
         verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
         verify(reviewRepository).save(review);
     }
 
     @Test
-    void preservesEarlierEvidenceHistoryAcrossAnotherEvidenceRound() {
+    void preservesCombinedEvidenceAcrossAnotherEvidenceRound() {
         Review review = givenAwaitingReview();
         ClinicalJustification firstAdditions = additionalEvidence();
         evidenceSubmissionService.submitEvidence(review.getRequestId(), new EvidenceSubmission(providerId, firstAdditions));
@@ -285,11 +269,11 @@ class EvidenceSubmissionServiceTests {
 
         evidenceSubmissionService.submitEvidence(review.getRequestId(), new EvidenceSubmission(providerId, secondAdditions));
 
-        ArgumentCaptor<ReviewHistory> histories = ArgumentCaptor.forClass(ReviewHistory.class);
-        verify(reviewHistoryRepository, times(2)).save(histories.capture());
-        assertNotEquals(histories.getAllValues().getFirst().getId(), histories.getAllValues().getLast().getId());
-        assertEquals(firstAdditions.toDomain(), histories.getAllValues().getFirst().getEventPayload().get("clinicalJustification"));
-        assertEquals(secondAdditions.toDomain(), histories.getAllValues().getLast().getEventPayload().get("clinicalJustification"));
+        verify(authorizationRequestRepository, times(2)).save(review.getAuthorizationRequest());
+        verify(reviewRepository, times(2)).save(review);
+        assertEquals(2, review.getAuthorizationRequest().getClinicalJustification().conditions().size());
+        assertEquals(2, review.getAuthorizationRequest().getClinicalJustification().observations().size());
+        assertEquals(List.of("EF"), review.getEvidenceRequest().requestedObservations());
         assertEquals("Original evidence\n\nNew test results\n\nFurther clinical context", review.getAuthorizationRequest().getClinicalJustification().summary());
         assertEquals(ReviewStatus.PENDING_MANUAL_REVIEW, review.getReviewStatus());
     }
@@ -304,7 +288,18 @@ class EvidenceSubmissionServiceTests {
                 evidenceSubmissionService.submitEvidence(review.getRequestId(), new EvidenceSubmission(providerId, additionalEvidence()))
         ));
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(reviewHistoryRepository);
+    }
+
+    @Test
+    void propagatesReviewPersistenceFailure() {
+        Review review = givenAwaitingReview();
+        IllegalStateException failure = new IllegalStateException("Review unavailable");
+        doThrow(failure).when(reviewRepository).save(review);
+
+        assertSame(failure, assertThrows(IllegalStateException.class, () ->
+                evidenceSubmissionService.submitEvidence(review.getRequestId(), new EvidenceSubmission(providerId, additionalEvidence()))
+        ));
+        verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
     }
 
     Review givenAwaitingReview() {
@@ -334,15 +329,8 @@ class EvidenceSubmissionServiceTests {
                 List.of(new ClinicalJustification.ObservationEvidence("EF", new BigDecimal("35.1"), "%", null, clock.instant())));
     }
 
-    ReviewHistory capturedHistory() {
-        ArgumentCaptor<ReviewHistory> history = ArgumentCaptor.forClass(ReviewHistory.class);
-        verify(reviewHistoryRepository).save(history.capture());
-        return history.getValue();
-    }
-
     void assertNoWrites() {
         verify(authorizationRequestRepository, never()).save(any());
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(reviewHistoryRepository);
     }
 }

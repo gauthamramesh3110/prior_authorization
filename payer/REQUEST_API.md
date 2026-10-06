@@ -38,16 +38,8 @@ An unknown request returns `404 Not Found`. A provider ID that does not match th
 
 Both endpoints only read data. Provider identity is supplied through `providerId`; these checks do not authenticate the caller.
 
-## Evidence requests and review timeline
+## Evidence requests
 
 The current request for evidence is available at `review.evidenceRequest` in request details. It contains `summary`, simple `requestedConditions` and `requestedObservations` lists, and optional `otherEvidence` text. It is `null` until an evidence request is recorded. Use `reviewStatus` to determine whether evidence is currently awaited.
 
-For earlier evidence requests and events, when a request has a `reviewId`, use:
-
-```http
-GET /api/v1/reviews/{reviewId}/history
-```
-
-`EVIDENCE_REQUESTED` events include the structured `evidenceRequest`; older events retain their message and requested items. `UPDATED_EVIDENCE` events show submitted additions. The request details contain the merged current evidence. History is ordered oldest first and preserves earlier snapshots. See [review history](REVIEW_API.md#review-history).
-
-Submit additional evidence through `PATCH /api/v1/requests/{id}/evidence`, as described in [submit evidence](REVIEW_API.md#submit-evidence).
+The request details contain the merged current clinical evidence and `evidenceUpdatedAt`. Submit additional evidence through `PATCH /api/v1/requests/{id}/evidence`, as described in [submit evidence](REVIEW_API.md#submit-evidence).

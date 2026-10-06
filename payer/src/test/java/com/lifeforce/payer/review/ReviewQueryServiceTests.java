@@ -20,7 +20,6 @@ import com.lifeforce.payer.review.domain.Review;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.dto.ReviewDetails;
 import com.lifeforce.payer.review.repository.ReviewRepository;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.service.ReviewQueryService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -46,7 +45,6 @@ import static org.mockito.Mockito.*;
 class ReviewQueryServiceTests {
     @Mock ReviewRepository reviewRepository;
     @Mock PlanServiceRepository planServiceRepository;
-    @Mock ReviewHistoryRepository reviewHistoryRepository;
 
     ReviewQueryService reviewQueryService;
     Instant submittedAt = Instant.parse("2019-06-01T00:00:00Z");
@@ -54,7 +52,7 @@ class ReviewQueryServiceTests {
 
     @BeforeEach
     void createService() {
-        reviewQueryService = new ReviewQueryService(reviewRepository, planServiceRepository, reviewHistoryRepository);
+        reviewQueryService = new ReviewQueryService(reviewRepository, planServiceRepository);
     }
 
     @AfterEach

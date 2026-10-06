@@ -7,12 +7,10 @@ import com.lifeforce.payer.request.domain.ClinicalJustification;
 import com.lifeforce.payer.request.domain.RequestedService;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.review.domain.Review;
-import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.dto.EvidenceRequest;
 import com.lifeforce.payer.review.dto.RequestedEvidence;
 import com.lifeforce.payer.review.dto.EvidenceRequestResponse;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import com.lifeforce.payer.review.service.ReviewEvidenceService;
 import org.junit.jupiter.api.BeforeEach;
@@ -20,7 +18,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -43,7 +40,6 @@ import static org.mockito.Mockito.*;
 class ReviewEvidenceServiceTests {
     @Mock ReviewRepository reviewRepository;
     @Mock AuthorizationRequestRepository authorizationRequestRepository;
-    @Mock ReviewHistoryRepository reviewHistoryRepository;
 
     ReviewEvidenceService reviewEvidenceService;
     UUID reviewerId = UUID.randomUUID();
@@ -52,7 +48,7 @@ class ReviewEvidenceServiceTests {
 
     @BeforeEach
     void createService() {
-        reviewEvidenceService = new ReviewEvidenceService(reviewRepository, authorizationRequestRepository, reviewHistoryRepository, clock);
+        reviewEvidenceService = new ReviewEvidenceService(reviewRepository, authorizationRequestRepository, clock);
     }
 
     @ParameterizedTest
@@ -95,19 +91,6 @@ class ReviewEvidenceServiceTests {
         assertEquals(RequestStatusReason.AWAITING_EVIDENCE, response.requestStatusReason());
         verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
         verify(reviewRepository).save(review);
-        ReviewHistory history = capturedHistory();
-        assertEquals(history.getId(), response.id());
-        assertEquals(review.getId(), history.getReviewId());
-        assertEquals("REVIEWER", history.getEventSource());
-        assertEquals("EVIDENCE_REQUESTED", history.getEventType());
-        assertEquals(clock.instant(), history.getEventAt());
-        assertEquals(ReviewStatus.AWAITING_EVIDENCE, history.getEventPayload().get("reviewStatus"));
-        assertEquals(RequestStatus.PENDING, history.getEventPayload().get("requestStatus"));
-        assertEquals(RequestStatusReason.AWAITING_EVIDENCE, history.getEventPayload().get("statusReason"));
-        assertEquals(reviewerId, history.getEventPayload().get("reviewerId"));
-        assertEquals(response.evidenceRequest().toDomain(), history.getEventPayload().get("evidenceRequest"));
-        assertNull(history.getEventPayload().get("decision"));
-        assertNull(history.getEventPayload().get("decidedBy"));
     }
 
     @Test
@@ -162,7 +145,7 @@ class ReviewEvidenceServiceTests {
     }
 
     @Test
-    void recordsEachAdditionalEvidenceRequestWithoutOverwritingEarlierHistory() {
+    void replacesTheCurrentEvidenceRequestWithTheLatestRequest() {
         Review review = givenManualReview();
         EvidenceRequestResponse firstResponse = reviewEvidenceService.requestEvidence(review.getId(), evidenceRequest());
         UUID secondReviewerId = UUID.randomUUID();
@@ -170,13 +153,12 @@ class ReviewEvidenceServiceTests {
 
         EvidenceRequestResponse secondResponse = reviewEvidenceService.requestEvidence(review.getId(), secondRequest);
 
-        ArgumentCaptor<ReviewHistory> histories = ArgumentCaptor.forClass(ReviewHistory.class);
-        verify(reviewHistoryRepository, times(2)).save(histories.capture());
-        assertNotEquals(firstResponse.id(), secondResponse.id());
-        assertEquals(reviewerId, histories.getAllValues().getFirst().getEventPayload().get("reviewerId"));
-        assertEquals(firstResponse.evidenceRequest().toDomain(), histories.getAllValues().getFirst().getEventPayload().get("evidenceRequest"));
-        assertEquals(secondReviewerId, histories.getAllValues().getLast().getEventPayload().get("reviewerId"));
-        assertEquals(secondRequest.evidenceRequest().toDomain(), histories.getAllValues().getLast().getEventPayload().get("evidenceRequest"));
+        assertEquals(evidenceRequest().evidenceRequest(), firstResponse.evidenceRequest());
+        assertEquals(secondRequest.evidenceRequest(), secondResponse.evidenceRequest());
+        assertEquals(secondReviewerId, review.getReviewerId());
+        assertEquals(secondReviewerId, secondResponse.reviewerId());
+        verify(authorizationRequestRepository, times(2)).save(review.getAuthorizationRequest());
+        verify(reviewRepository, times(2)).save(review);
         assertEquals(secondRequest.evidenceRequest().toDomain(), review.getEvidenceRequest());
         assertEquals(ReviewStatus.AWAITING_EVIDENCE, review.getReviewStatus());
     }
@@ -191,39 +173,27 @@ class ReviewEvidenceServiceTests {
         requestedItems.add("Another item");
 
         assertEquals(List.of("EF observation"), response.evidenceRequest().requestedObservations());
-        assertEquals(response.evidenceRequest().toDomain(), capturedHistory().getEventPayload().get("evidenceRequest"));
+        assertEquals(response.evidenceRequest().toDomain(), review.getEvidenceRequest());
     }
 
     @Test
-    void propagatesRequestSaveFailureWithoutSavingReviewOrHistory() {
+    void propagatesRequestSaveFailureWithoutSavingReview() {
         Review review = givenManualReview();
         IllegalStateException failure = new IllegalStateException("Request unavailable");
         doThrow(failure).when(authorizationRequestRepository).save(review.getAuthorizationRequest());
 
         assertSame(failure, assertThrows(IllegalStateException.class, () -> reviewEvidenceService.requestEvidence(review.getId(), evidenceRequest())));
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(reviewHistoryRepository);
     }
 
     @Test
-    void propagatesReviewSaveFailureWithoutSavingHistory() {
+    void propagatesReviewSaveFailure() {
         Review review = givenManualReview();
         IllegalStateException failure = new IllegalStateException("Review unavailable");
         doThrow(failure).when(reviewRepository).save(review);
 
         assertSame(failure, assertThrows(IllegalStateException.class, () -> reviewEvidenceService.requestEvidence(review.getId(), evidenceRequest())));
-        verifyNoInteractions(reviewHistoryRepository);
-    }
-
-    @Test
-    void propagatesHistorySaveFailure() {
-        Review review = givenManualReview();
-        IllegalStateException failure = new IllegalStateException("History unavailable");
-        doThrow(failure).when(reviewHistoryRepository).save(any());
-
-        assertSame(failure, assertThrows(IllegalStateException.class, () -> reviewEvidenceService.requestEvidence(review.getId(), evidenceRequest())));
         verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
-        verify(reviewRepository).save(review);
     }
 
     Review givenManualReview() {
@@ -243,14 +213,8 @@ class ReviewEvidenceServiceTests {
         return new EvidenceRequest(reviewerId, new RequestedEvidence("Please provide supporting clinical evidence", List.of("CHF"), List.of("EF"), "Echocardiogram report"));
     }
 
-    ReviewHistory capturedHistory() {
-        ArgumentCaptor<ReviewHistory> history = ArgumentCaptor.forClass(ReviewHistory.class);
-        verify(reviewHistoryRepository).save(history.capture());
-        return history.getValue();
-    }
-
     void assertNoWrites() {
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(authorizationRequestRepository, reviewHistoryRepository);
+        verifyNoInteractions(authorizationRequestRepository);
     }
 }

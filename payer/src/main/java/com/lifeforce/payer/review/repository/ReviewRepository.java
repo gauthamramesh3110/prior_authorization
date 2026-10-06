@@ -12,8 +12,6 @@ import java.util.UUID;
 public interface ReviewRepository extends Repository<Review, UUID> {
     Review save(Review review);
 
-    boolean existsById(UUID id);
-
     List<Review> findByRequestIdIn(List<UUID> requestIds);
 
     List<Review> findByReviewStatusOrderByLastUpdatedAsc(ReviewStatus reviewStatus);

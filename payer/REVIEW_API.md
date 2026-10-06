@@ -28,7 +28,7 @@ Returns `200 OK` for a review in any status. The response contains:
 
 `policy` is `null` when the plan service or policy is unconfigured. It reflects the current policy configuration; the schema does not currently store the policy version used for an earlier evaluation. Decision fields are `null` before a decision is made.
 
-An unknown review ID returns `404 Not Found`. An invalid UUID or status returns `400 Bad Request`. Reading either endpoint leaves workflow state and history unchanged.
+An unknown review ID returns `404 Not Found`. An invalid UUID or status returns `400 Bad Request`. Reading either endpoint leaves workflow state unchanged.
 
 
 ## Manual decision
@@ -67,7 +67,7 @@ Approval changes the request to `APPROVED` / `MANUAL_APPROVED`. Rejection change
 
 The server supplies the decision time. Approval is valid from that time for 30 days, matching auto-approval. Rejection has no approved quantity or validity dates. Reviewer identity is supplied in the request body.
 
-The service saves the request, review, and history within one transaction. The history event has source `REVIEWER` and type `MANUAL_APPROVED` or `MANUAL_REJECTED`, with the reviewer, reason, decision time, quantity, and validity dates in its snapshot.
+The service saves the request and review within one transaction. The review stores the current decision, reviewer, reason, decision time, quantity, and validity dates.
 
 An unknown review returns `404 Not Found`. A review outside the manual queue, an authorization request that is no longer pending, or a repeated decision returns `409 Conflict`. Invalid input or quantity returns `400 Bad Request`.
 
@@ -97,9 +97,9 @@ Example:
 
 The review must be `PENDING_MANUAL_REVIEW` or `AWAITING_EVIDENCE`, and its authorization request must be `PENDING`. The service changes the review to `AWAITING_EVIDENCE`, sets the request reason to `AWAITING_EVIDENCE`, and records the requesting reviewer and current time. Original submission time and clinical evidence are preserved; decision fields remain unset.
 
-The request, review, and history are saved within one transaction. The history event has source `REVIEWER`, type `EVIDENCE_REQUESTED`, and a snapshot containing `evidenceRequest`, reviewer ID, and resulting statuses. Another request while awaiting evidence replaces the current request on the review and appends a new history event, preserving earlier snapshots.
+The request and review are saved within one transaction. Another request while awaiting evidence replaces the current `evidenceRequest` on the review and updates the reviewer and timestamp.
 
-A successful call returns `200 OK` with `id` (the history event ID), `reviewId`, `requestId`, `reviewerId`, `evidenceRequest`, `requestedAt`, `reviewStatus`, `requestStatus`, and `requestStatusReason`.
+A successful call returns `200 OK` with `reviewId`, `requestId`, `reviewerId`, `evidenceRequest`, `requestedAt`, `reviewStatus`, `requestStatus`, and `requestStatusReason`.
 
 The current request is stored in `review.evidence_request` as JSONB. Apply Flyway migration `V5__review_evidence_request.sql`; earlier rows initially have `null`. Both reviewer details and provider request details expose it. Automatic evaluation fills the lists with missing condition and observation codes, while manual reviewers supply the fields above. The latest request remains available after evidence submission or a decision; `reviewStatus` indicates whether evidence is still awaited.
 
@@ -143,23 +143,10 @@ If a reviewer requested the evidence, the review returns to `PENDING_MANUAL_REVI
 
 The server records `evidenceUpdatedAt`. Automatic evaluation uses that timestamp as the clinical evidence cutoff, so results collected after the original request can be considered. Initial reviews continue to use `submittedAt`. Coverage and network checks keep the original submission date. Apply Flyway migration `V4__evidence_updated_at.sql` for this new nullable column.
 
-The request, review, and history are saved in one transaction. History has source `PROVIDER`, type `UPDATED_EVIDENCE`, and contains the provider ID, resulting statuses, and `clinicalJustification` containing only this submission's additions. Earlier events are preserved.
+The request and review are saved in one transaction. The request stores the combined evidence and its latest update timestamp. The latest `evidenceRequest` remains available on the review.
 
-A successful call returns `200 OK` with `id` (history event ID), `requestId`, `reviewId`, `providerId`, `reviewStatus`, `requestStatus`, `requestStatusReason`, and `evidenceUpdatedAt`. Updated combined evidence is available through review details.
+A successful call returns `200 OK` with `requestId`, `reviewId`, `providerId`, `reviewStatus`, `requestStatus`, `requestStatusReason`, and `evidenceUpdatedAt`. Updated combined evidence is available through review details.
 
 An unknown authorization request returns `404 Not Found`. A provider mismatch returns `403 Forbidden`. A request without a review, a review outside `AWAITING_EVIDENCE`, or a request that is no longer pending returns `409 Conflict`. A repeated submission also returns `409` until the review requests evidence again. Invalid or empty evidence returns `400 Bad Request`.
 
-
-## Review history
-
-```http
-GET /api/v1/reviews/{id}/history
-```
-
-Returns the stored history events for a review in any status, ordered by `eventAt` ascending and then event `id` ascending when timestamps match. Each entry contains `id`, `reviewId`, `eventSource`, `eventType`, `eventAt`, and `eventPayload`.
-
-The payload is the original event snapshot. It can contain request/review statuses, decision details, reviewer identity, quantities, and validity dates. New events also snapshot the current `evidenceRequest`. Older `EVIDENCE_REQUESTED` events retain their original `message` and `requestedEvidence` payloads. `UPDATED_EVIDENCE` events contain `providerId` and `clinicalJustification` with only the additions from that submission. Reading history does not reconstruct or overwrite snapshots using current request state.
-
-An existing review without events returns `200 OK` with `[]`. An unknown review returns `404 Not Found`. An invalid review UUID returns `400 Bad Request`. The endpoint leaves workflow state and history unchanged.
-
-Providers can read the current evidence request in [request details](REQUEST_API.md). The history endpoint provides earlier requests and the rest of the review timeline.
+Apply `V6__remove_review_history.sql` to drop the obsolete `review_history` table. The timeline endpoint has been removed, and evidence responses no longer include a history event `id`. Current requests, reviews, clinical evidence, evidence requests, and decisions are retained.

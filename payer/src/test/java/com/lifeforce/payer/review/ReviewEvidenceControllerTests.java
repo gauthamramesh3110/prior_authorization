@@ -69,9 +69,8 @@ class ReviewEvidenceControllerTests {
 
     @Test
     void requestsEvidenceAndReturnsUpdatedStatusesAndRequestedItems() throws Exception {
-        UUID evidenceRequestId = UUID.randomUUID();
         EvidenceRequestResponse response = new EvidenceRequestResponse(
-                evidenceRequestId, reviewId, requestId, reviewerId, new RequestedEvidence("Please provide supporting evidence", List.of("CHF"), List.of("EF"), "Echocardiogram report"), requestedAt,
+                reviewId, requestId, reviewerId, new RequestedEvidence("Please provide supporting evidence", List.of("CHF"), List.of("EF"), "Echocardiogram report"), requestedAt,
                 ReviewStatus.AWAITING_EVIDENCE, RequestStatus.PENDING, RequestStatusReason.AWAITING_EVIDENCE
         );
         when(reviewEvidenceService.requestEvidence(eq(reviewId), any())).thenReturn(response);
@@ -79,7 +78,7 @@ class ReviewEvidenceControllerTests {
         mockMvc.perform(post("/api/v1/reviews/{id}/evidence-requests", reviewId)
                         .contentType(MediaType.APPLICATION_JSON).content(requestBody()))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value(evidenceRequestId.toString()))
+                .andExpect(jsonPath("$.id").doesNotExist())
                 .andExpect(jsonPath("$.reviewId").value(reviewId.toString()))
                 .andExpect(jsonPath("$.requestId").value(requestId.toString()))
                 .andExpect(jsonPath("$.reviewerId").value(reviewerId.toString()))

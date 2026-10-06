@@ -4,11 +4,9 @@ import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.review.domain.Review;
-import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.dto.EvidenceRequest;
 import com.lifeforce.payer.review.dto.EvidenceRequestResponse;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
@@ -22,13 +20,11 @@ import java.util.UUID;
 public class ReviewEvidenceService {
     private final ReviewRepository reviewRepository;
     private final AuthorizationRequestRepository authorizationRequestRepository;
-    private final ReviewHistoryRepository reviewHistoryRepository;
     private final Clock clock;
 
-    public ReviewEvidenceService(ReviewRepository reviewRepository, AuthorizationRequestRepository authorizationRequestRepository, ReviewHistoryRepository reviewHistoryRepository, Clock clock) {
+    public ReviewEvidenceService(ReviewRepository reviewRepository, AuthorizationRequestRepository authorizationRequestRepository, Clock clock) {
         this.reviewRepository = reviewRepository;
         this.authorizationRequestRepository = authorizationRequestRepository;
-        this.reviewHistoryRepository = reviewHistoryRepository;
         this.clock = clock;
     }
 
@@ -45,10 +41,8 @@ public class ReviewEvidenceService {
 
         request.updateStatusToAwaitingEvidence();
         review.requestEvidence(evidenceRequest.reviewerId(), evidenceRequest.evidenceRequest().toDomain(), clock);
-        ReviewHistory history = ReviewHistory.createEvidenceRequestedEvent(review);
         authorizationRequestRepository.save(request);
         reviewRepository.save(review);
-        reviewHistoryRepository.save(history);
-        return EvidenceRequestResponse.from(review, history);
+        return EvidenceRequestResponse.from(review);
     }
 }

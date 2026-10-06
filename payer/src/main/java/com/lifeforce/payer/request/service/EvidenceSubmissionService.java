@@ -7,9 +7,7 @@ import com.lifeforce.payer.request.dto.EvidenceSubmission;
 import com.lifeforce.payer.request.dto.EvidenceSubmissionResponse;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.review.domain.Review;
-import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
@@ -23,13 +21,11 @@ import java.util.UUID;
 public class EvidenceSubmissionService {
     private final AuthorizationRequestRepository authorizationRequestRepository;
     private final ReviewRepository reviewRepository;
-    private final ReviewHistoryRepository reviewHistoryRepository;
     private final Clock clock;
 
-    public EvidenceSubmissionService(AuthorizationRequestRepository authorizationRequestRepository, ReviewRepository reviewRepository, ReviewHistoryRepository reviewHistoryRepository, Clock clock) {
+    public EvidenceSubmissionService(AuthorizationRequestRepository authorizationRequestRepository, ReviewRepository reviewRepository, Clock clock) {
         this.authorizationRequestRepository = authorizationRequestRepository;
         this.reviewRepository = reviewRepository;
-        this.reviewHistoryRepository = reviewHistoryRepository;
         this.clock = clock;
     }
 
@@ -61,10 +57,8 @@ public class EvidenceSubmissionService {
         } else {
             review.updateStatusToPendingEvaluation(clock);
         }
-        ReviewHistory history = ReviewHistory.createEvidenceSubmittedEvent(review, submission.providerId(), evidence);
         authorizationRequestRepository.save(request);
         reviewRepository.save(review);
-        reviewHistoryRepository.save(history);
-        return EvidenceSubmissionResponse.from(review, history);
+        return EvidenceSubmissionResponse.from(review);
     }
 }

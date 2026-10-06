@@ -21,9 +21,7 @@ import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.request.repository.CoverageRepository;
 import com.lifeforce.payer.request.service.AuthorizationRequestService;
 import com.lifeforce.payer.review.domain.Review;
-import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -55,7 +53,6 @@ class AuthorizationRequestServiceTests {
     @Mock CoverageRepository coverageRepository;
     @Mock PlanRepository planRepository;
     @Mock ReviewRepository reviewRepository;
-    @Mock ReviewHistoryRepository reviewHistoryRepository;
     @Mock NetworkParticipationRepository networkParticipationRepository;
     @Mock OrganizationRepository organizationRepository;
     @Mock PatientRepository patientRepository;
@@ -74,7 +71,7 @@ class AuthorizationRequestServiceTests {
     void createService() {
         authorizationRequestService = new AuthorizationRequestService(
                 authorizationRequestRepository, coverageRepository, planRepository, reviewRepository,
-                reviewHistoryRepository, networkParticipationRepository, organizationRepository,
+                networkParticipationRepository, organizationRepository,
                 patientRepository, providerRepository, clock
         );
     }
@@ -94,7 +91,7 @@ class AuthorizationRequestServiceTests {
         assertEquals(RequestStatus.SUBMITTED, savedRequest.getValue().getRequestStatus());
         assertEquals(request.requestedService().toDomain(), savedRequest.getValue().getRequestedService());
         assertEquals(request.clinicalJustification().toDomain(), savedRequest.getValue().getClinicalJustification());
-        verifyNoInteractions(reviewRepository, reviewHistoryRepository);
+        verifyNoInteractions(reviewRepository);
     }
 
     @Test
@@ -146,7 +143,7 @@ class AuthorizationRequestServiceTests {
         authorizationRequestService.processSubmittedRequest(UUID.randomUUID());
 
         verify(authorizationRequestRepository, never()).save(any());
-        verifyNoInteractions(coverageRepository, planRepository, reviewRepository, reviewHistoryRepository);
+        verifyNoInteractions(coverageRepository, planRepository, reviewRepository);
     }
 
     @ParameterizedTest
@@ -164,7 +161,7 @@ class AuthorizationRequestServiceTests {
 
         assertEquals(status, request.getRequestStatus());
         verify(authorizationRequestRepository, never()).save(any());
-        verifyNoInteractions(coverageRepository, planRepository, reviewRepository, reviewHistoryRepository);
+        verifyNoInteractions(coverageRepository, planRepository, reviewRepository);
     }
 
     @Test
@@ -309,7 +306,7 @@ class AuthorizationRequestServiceTests {
     }
 
     @Test
-    void createsEvaluationReviewAndHistoryOnlyOnce() {
+    void createsEvaluationReviewOnlyOnce() {
         AuthorizationRequest request = givenSubmittedRequest("PA");
         givenActiveCoverage();
         givenPlanWithService(BenefitStatus.COVERED, true);
@@ -402,26 +399,15 @@ class AuthorizationRequestServiceTests {
     }
 
     void assertNoReview() {
-        verifyNoInteractions(reviewRepository, reviewHistoryRepository);
+        verifyNoInteractions(reviewRepository);
     }
 
     void assertCreatedReview(AuthorizationRequest request, ReviewStatus status) {
         ArgumentCaptor<Review> savedReview = ArgumentCaptor.forClass(Review.class);
-        ArgumentCaptor<ReviewHistory> savedHistory = ArgumentCaptor.forClass(ReviewHistory.class);
         verify(reviewRepository).save(savedReview.capture());
-        verify(reviewHistoryRepository).save(savedHistory.capture());
         Review review = savedReview.getValue();
-        ReviewHistory history = savedHistory.getValue();
         assertEquals(request.getId(), review.getRequestId());
         assertEquals(status, review.getReviewStatus());
         assertEquals(clock.instant(), review.getLastUpdated());
-        assertEquals(review.getId(), history.getReviewId());
-        assertEquals("REVIEW_CREATED", history.getEventType());
-        assertEquals("SYSTEM", history.getEventSource());
-        assertEquals(clock.instant(), history.getEventAt());
-        assertEquals(status, history.getEventPayload().get("reviewStatus"));
-        assertEquals(RequestStatus.PENDING, history.getEventPayload().get("requestStatus"));
-        assertEquals(request.getRequestStatusReason(), history.getEventPayload().get("statusReason"));
-        assertNull(history.getEventPayload().get("decision"));
     }
 }

@@ -16,8 +16,6 @@ import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.request.repository.CoverageRepository;
 import com.lifeforce.payer.plan.repository.PlanRepository;
 import com.lifeforce.payer.review.domain.Review;
-import com.lifeforce.payer.review.domain.ReviewHistory;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
@@ -35,18 +33,16 @@ public class AuthorizationRequestService {
     private final CoverageRepository coverageRepository;
     private final PlanRepository planRepository;
     private final ReviewRepository reviewRepository;
-    private final ReviewHistoryRepository reviewHistoryRepository;
     private final NetworkParticipationRepository networkParticipationRepository;
     private final OrganizationRepository organizationRepository;
     private final PatientRepository patientRepository;
     private final ProviderRepository providerRepository;
     private final Clock clock;
-    public AuthorizationRequestService(AuthorizationRequestRepository authorizationRequestRepository, CoverageRepository coverageRepository, PlanRepository planRepository, ReviewRepository reviewRepository, ReviewHistoryRepository reviewHistoryRepository, NetworkParticipationRepository networkParticipationRepository, OrganizationRepository organizationRepository, PatientRepository patientRepository, ProviderRepository providerRepository, Clock clock) {
+    public AuthorizationRequestService(AuthorizationRequestRepository authorizationRequestRepository, CoverageRepository coverageRepository, PlanRepository planRepository, ReviewRepository reviewRepository, NetworkParticipationRepository networkParticipationRepository, OrganizationRepository organizationRepository, PatientRepository patientRepository, ProviderRepository providerRepository, Clock clock) {
         this.authorizationRequestRepository = authorizationRequestRepository;
         this.coverageRepository = coverageRepository;
         this.planRepository = planRepository;
         this.reviewRepository = reviewRepository;
-        this.reviewHistoryRepository = reviewHistoryRepository;
         this.networkParticipationRepository = networkParticipationRepository;
         this.organizationRepository = organizationRepository;
         this.patientRepository = patientRepository;
@@ -129,7 +125,7 @@ public class AuthorizationRequestService {
             Review review = Review.createNewManualReview(request.getId(), clock);
             request.updateStatusToManualReview();
             authorizationRequestRepository.save(request);
-            saveNewReview(review, request);
+            reviewRepository.save(review);
             return;
         }
         Plan currentPlan = plan.get();
@@ -158,7 +154,7 @@ public class AuthorizationRequestService {
             Review review = Review.createNewManualReview(request.getId(), clock);
             request.updateStatusToManualReview();
             authorizationRequestRepository.save(request);
-            saveNewReview(review, request);
+            reviewRepository.save(review);
             return;
         }
 
@@ -181,11 +177,6 @@ public class AuthorizationRequestService {
         Review review = Review.createNewReview(request.getId(), clock);
         request.updateStatusToPendingEvaluation();
         authorizationRequestRepository.save(request);
-        saveNewReview(review, request);
-    }
-
-    private void saveNewReview(Review review, AuthorizationRequest request) {
         reviewRepository.save(review);
-        reviewHistoryRepository.save(ReviewHistory.createReviewCreatedEvent(review, request));
     }
 }

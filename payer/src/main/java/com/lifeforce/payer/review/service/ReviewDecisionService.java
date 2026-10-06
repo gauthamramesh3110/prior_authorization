@@ -5,11 +5,9 @@ import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.review.domain.Decision;
 import com.lifeforce.payer.review.domain.Review;
-import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.dto.ManualDecisionRequest;
 import com.lifeforce.payer.review.dto.ReviewDecisionResponse;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
@@ -23,13 +21,11 @@ import java.util.UUID;
 public class ReviewDecisionService {
     private final ReviewRepository reviewRepository;
     private final AuthorizationRequestRepository authorizationRequestRepository;
-    private final ReviewHistoryRepository reviewHistoryRepository;
     private final Clock clock;
 
-    public ReviewDecisionService(ReviewRepository reviewRepository, AuthorizationRequestRepository authorizationRequestRepository, ReviewHistoryRepository reviewHistoryRepository, Clock clock) {
+    public ReviewDecisionService(ReviewRepository reviewRepository, AuthorizationRequestRepository authorizationRequestRepository, Clock clock) {
         this.reviewRepository = reviewRepository;
         this.authorizationRequestRepository = authorizationRequestRepository;
-        this.reviewHistoryRepository = reviewHistoryRepository;
         this.clock = clock;
     }
 
@@ -59,7 +55,6 @@ public class ReviewDecisionService {
         review.updateStatusToManuallyDecided(decisionRequest.decision(), decisionRequest.decisionReason(), decisionRequest.reviewerId(), decisionRequest.approvedQuantity(), clock);
         authorizationRequestRepository.save(request);
         reviewRepository.save(review);
-        reviewHistoryRepository.save(ReviewHistory.createReviewerEvent(review));
         return ReviewDecisionResponse.from(review);
     }
 }

@@ -9,11 +9,9 @@ import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.review.domain.Decision;
 import com.lifeforce.payer.review.domain.DecisionActor;
 import com.lifeforce.payer.review.domain.Review;
-import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.dto.ManualDecisionRequest;
 import com.lifeforce.payer.review.dto.ReviewDecisionResponse;
-import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import com.lifeforce.payer.review.service.ReviewDecisionService;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,7 +21,6 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.NullSource;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
@@ -46,7 +43,6 @@ import static org.mockito.Mockito.*;
 class ReviewDecisionServiceTests {
     @Mock ReviewRepository reviewRepository;
     @Mock AuthorizationRequestRepository authorizationRequestRepository;
-    @Mock ReviewHistoryRepository reviewHistoryRepository;
 
     ReviewDecisionService reviewDecisionService;
     UUID reviewerId = UUID.randomUUID();
@@ -55,7 +51,7 @@ class ReviewDecisionServiceTests {
 
     @BeforeEach
     void createService() {
-        reviewDecisionService = new ReviewDecisionService(reviewRepository, authorizationRequestRepository, reviewHistoryRepository, clock);
+        reviewDecisionService = new ReviewDecisionService(reviewRepository, authorizationRequestRepository, clock);
     }
 
     @ParameterizedTest
@@ -78,7 +74,7 @@ class ReviewDecisionServiceTests {
         assertEquals(clock.instant(), review.getValidFrom());
         assertEquals(clock.instant().plus(30, ChronoUnit.DAYS), review.getValidTo());
         assertResponseMatchesReview(response, review);
-        assertSavedReviewAndHistory(review);
+        assertSavedRequestAndReview(review);
     }
 
     @Test
@@ -100,7 +96,7 @@ class ReviewDecisionServiceTests {
         assertNull(review.getValidFrom());
         assertNull(review.getValidTo());
         assertResponseMatchesReview(response, review);
-        assertSavedReviewAndHistory(review);
+        assertSavedRequestAndReview(review);
     }
 
     @Test
@@ -111,7 +107,7 @@ class ReviewDecisionServiceTests {
 
         assertEquals(HttpStatus.NOT_FOUND, failure.getStatusCode());
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(authorizationRequestRepository, reviewHistoryRepository);
+        verifyNoInteractions(authorizationRequestRepository);
     }
 
     @ParameterizedTest
@@ -181,7 +177,7 @@ class ReviewDecisionServiceTests {
 
     @ParameterizedTest
     @EnumSource(Decision.class)
-    void refusesSecondDecisionAndPreservesOriginalHistory(Decision firstDecision) {
+    void refusesSecondDecisionAndPreservesOriginalDecision(Decision firstDecision) {
         Review review = givenManualReview();
         Integer quantity = firstDecision == Decision.APPROVED ? 5 : null;
         reviewDecisionService.submitManualDecision(review.getId(), decision(firstDecision, quantity));
@@ -194,11 +190,11 @@ class ReviewDecisionServiceTests {
         assertEquals(HttpStatus.CONFLICT, failure.getStatusCode());
         assertEquals(firstDecision, review.getDecision());
         assertEquals(reviewerId, review.getReviewerId());
-        assertSavedReviewAndHistory(review);
+        assertSavedRequestAndReview(review);
     }
 
     @Test
-    void propagatesRequestSaveFailureWithoutSavingReviewOrHistory() {
+    void propagatesRequestSaveFailureWithoutSavingReview() {
         Review review = givenManualReview();
         IllegalStateException failure = new IllegalStateException("Request unavailable");
         doThrow(failure).when(authorizationRequestRepository).save(review.getAuthorizationRequest());
@@ -207,11 +203,10 @@ class ReviewDecisionServiceTests {
                 reviewDecisionService.submitManualDecision(review.getId(), decision(Decision.APPROVED, 5))
         ));
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(reviewHistoryRepository);
     }
 
     @Test
-    void propagatesReviewSaveFailureWithoutSavingHistory() {
+    void propagatesReviewSaveFailure() {
         Review review = givenManualReview();
         IllegalStateException failure = new IllegalStateException("Review unavailable");
         doThrow(failure).when(reviewRepository).save(review);
@@ -219,20 +214,7 @@ class ReviewDecisionServiceTests {
         assertSame(failure, assertThrows(IllegalStateException.class, () ->
                 reviewDecisionService.submitManualDecision(review.getId(), decision(Decision.APPROVED, 5))
         ));
-        verifyNoInteractions(reviewHistoryRepository);
-    }
-
-    @Test
-    void propagatesHistorySaveFailure() {
-        Review review = givenManualReview();
-        IllegalStateException failure = new IllegalStateException("History unavailable");
-        doThrow(failure).when(reviewHistoryRepository).save(any());
-
-        assertSame(failure, assertThrows(IllegalStateException.class, () ->
-                reviewDecisionService.submitManualDecision(review.getId(), decision(Decision.REJECTED, null))
-        ));
         verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
-        verify(reviewRepository).save(review);
     }
 
     Review givenManualReview() {
@@ -263,7 +245,7 @@ class ReviewDecisionServiceTests {
 
     void assertNoWrites() {
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(authorizationRequestRepository, reviewHistoryRepository);
+        verifyNoInteractions(authorizationRequestRepository);
     }
 
     void assertResponseMatchesReview(ReviewDecisionResponse response, Review review) {
@@ -282,26 +264,8 @@ class ReviewDecisionServiceTests {
         assertEquals(review.getValidTo(), response.validTo());
     }
 
-    void assertSavedReviewAndHistory(Review review) {
+    void assertSavedRequestAndReview(Review review) {
         verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
         verify(reviewRepository).save(review);
-        ArgumentCaptor<ReviewHistory> savedHistory = ArgumentCaptor.forClass(ReviewHistory.class);
-        verify(reviewHistoryRepository).save(savedHistory.capture());
-        ReviewHistory history = savedHistory.getValue();
-        assertEquals(review.getId(), history.getReviewId());
-        assertEquals("REVIEWER", history.getEventSource());
-        assertEquals(review.getAuthorizationRequest().getRequestStatusReason().name(), history.getEventType());
-        assertEquals(clock.instant(), history.getEventAt());
-        assertEquals(ReviewStatus.DECIDED, history.getEventPayload().get("reviewStatus"));
-        assertEquals(review.getAuthorizationRequest().getRequestStatus(), history.getEventPayload().get("requestStatus"));
-        assertEquals(review.getAuthorizationRequest().getRequestStatusReason(), history.getEventPayload().get("statusReason"));
-        assertEquals(review.getDecision(), history.getEventPayload().get("decision"));
-        assertEquals("Clinical review completed", history.getEventPayload().get("decisionReason"));
-        assertEquals(clock.instant(), history.getEventPayload().get("decisionDate"));
-        assertEquals(DecisionActor.REVIEWER, history.getEventPayload().get("decidedBy"));
-        assertEquals(reviewerId, history.getEventPayload().get("reviewerId"));
-        assertEquals(review.getApprovedQuantity(), history.getEventPayload().get("approvedQuantity"));
-        assertEquals(review.getValidFrom(), history.getEventPayload().get("validFrom"));
-        assertEquals(review.getValidTo(), history.getEventPayload().get("validTo"));
     }
 }
