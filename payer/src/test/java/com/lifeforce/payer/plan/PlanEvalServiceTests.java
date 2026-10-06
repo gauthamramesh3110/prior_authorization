@@ -139,6 +139,38 @@ class PlanEvalServiceTests {
         }
     }
 
+    @Test
+    void requestsMissingConditionAndObservationCodes() {
+        Policy policy = policy(Match.ALL, conditionCriterion(), observationCriterion(PolicyCriterionOperator.LTE));
+
+        var requestedEvidence = planEvalService.getRequestedEvidence(policy, new ClinicalJustification(null, null, null), submittedAt);
+
+        assertEquals(List.of("CHF"), requestedEvidence.requestedConditions());
+        assertEquals(List.of("EF"), requestedEvidence.requestedObservations());
+    }
+
+    @Test
+    void excludesPresentConditionsAndFailedMeasurementsFromRequestedEvidence() {
+        PolicyCriterion missingObservation = observationCriterion(PolicyCriterionOperator.GT);
+        ReflectionTestUtils.setField(missingObservation, "code", "WEIGHT");
+        Policy policy = policy(Match.ANY, conditionCriterion(), observationCriterion(PolicyCriterionOperator.LTE), missingObservation);
+        ClinicalJustification evidence = new ClinicalJustification(null, conditions(), List.of(observation("40", "%", submittedAt)));
+
+        var requestedEvidence = planEvalService.getRequestedEvidence(policy, evidence, submittedAt);
+
+        assertEquals(List.of(), requestedEvidence.requestedConditions());
+        assertEquals(List.of("WEIGHT"), requestedEvidence.requestedObservations());
+    }
+
+    @Test
+    void requestsOnlyMeasurementsMissingAtTheEvaluationTime() {
+        Policy policy = observationPolicy();
+        ClinicalJustification evidence = new ClinicalJustification(null, null, List.of(observation("35", "%", submittedAt.plusSeconds(1))));
+
+        assertEquals(List.of("EF"), planEvalService.getRequestedEvidence(policy, evidence, submittedAt).requestedObservations());
+        assertEquals(List.of(), planEvalService.getRequestedEvidence(policy, evidence, submittedAt.plusSeconds(1)).requestedObservations());
+    }
+
     Policy conditionPolicy() {
         return policy(Match.ANY, conditionCriterion());
     }

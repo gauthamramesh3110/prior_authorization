@@ -128,7 +128,8 @@ class RequestQueryControllerTests {
     void returnsDetailsWithCurrentEvidenceAndDecision() throws Exception {
         RequestDetails.ReviewDetails review = new RequestDetails.ReviewDetails(
                 reviewId, ReviewStatus.DECIDED, updatedAt, Decision.APPROVED, "Approved following clinical review", updatedAt,
-                DecisionActor.REVIEWER, UUID.randomUUID(), 3, updatedAt, updatedAt.plus(30, ChronoUnit.DAYS)
+                DecisionActor.REVIEWER, UUID.randomUUID(), 3, updatedAt, updatedAt.plus(30, ChronoUnit.DAYS),
+                new com.lifeforce.payer.review.dto.RequestedEvidence("Provide clinical evidence", List.of("CHF"), List.of("EF"), "Report")
         );
         ClinicalJustification evidence = new ClinicalJustification("Updated evidence", List.of(), List.of(
                 new ClinicalJustification.ObservationEvidence("EF", new BigDecimal("35.1"), "%", null, updatedAt)
@@ -142,6 +143,10 @@ class RequestQueryControllerTests {
                 .andExpect(jsonPath("$.request.requestStatusReason").value("MANUAL_APPROVED"))
                 .andExpect(jsonPath("$.request.requestedService.code").value("PA"))
                 .andExpect(jsonPath("$.request.submittedAt").value(submittedAt.toString()))
+                .andExpect(jsonPath("$.review.evidenceRequest.summary").value("Provide clinical evidence"))
+                .andExpect(jsonPath("$.review.evidenceRequest.requestedConditions[0]").value("CHF"))
+                .andExpect(jsonPath("$.review.evidenceRequest.requestedObservations[0]").value("EF"))
+                .andExpect(jsonPath("$.review.evidenceRequest.otherEvidence").value("Report"))
                 .andExpect(jsonPath("$.clinicalJustification.summary").value("Updated evidence"))
                 .andExpect(jsonPath("$.clinicalJustification.observations[0].value").value(35.1))
                 .andExpect(jsonPath("$.review.id").value(reviewId.toString()))

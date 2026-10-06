@@ -34,14 +34,16 @@ public record ReviewDetails(
         Instant validTo,
         Integer approvedQuantity,
         RequestDetails request,
-        PolicyDetails policy
+        PolicyDetails policy,
+        RequestedEvidence evidenceRequest
 ) {
     public static ReviewDetails from(Review review, Policy policy) {
         return new ReviewDetails(
                 review.getId(), review.getReviewStatus(), review.getLastUpdated(), review.getDecision(),
                 review.getDecisionReason(), review.getDecisionDate(), review.getDecidedBy(), review.getReviewerId(),
                 review.getValidFrom(), review.getValidTo(), review.getApprovedQuantity(),
-                RequestDetails.from(review.getAuthorizationRequest()), policy == null ? null : PolicyDetails.from(policy)
+                RequestDetails.from(review.getAuthorizationRequest()), policy == null ? null : PolicyDetails.from(policy),
+                RequestedEvidence.from(review.getEvidenceRequest())
         );
     }
 
@@ -55,13 +57,14 @@ public record ReviewDetails(
             RequestStatusReason requestStatusReason,
             RequestedService requestedService,
             ClinicalJustification clinicalJustification,
-            Instant submittedAt
+            Instant submittedAt,
+            Instant evidenceUpdatedAt
     ) {
         public static RequestDetails from(AuthorizationRequest request) {
             return new RequestDetails(
                     request.getId(), request.getPatientId(), request.getProviderId(), request.getOrganizationId(),
                     request.getPlanId(), request.getRequestStatus(), request.getRequestStatusReason(),
-                    RequestedService.from(request.getRequestedService()), ClinicalJustification.from(request.getClinicalJustification()), request.getSubmittedAt()
+                    RequestedService.from(request.getRequestedService()), ClinicalJustification.from(request.getClinicalJustification()), request.getSubmittedAt(), request.getEvidenceUpdatedAt()
             );
         }
     }

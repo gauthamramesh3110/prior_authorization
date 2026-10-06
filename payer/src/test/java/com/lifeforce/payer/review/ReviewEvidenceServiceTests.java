@@ -10,6 +10,7 @@ import com.lifeforce.payer.review.domain.Review;
 import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.dto.EvidenceRequest;
+import com.lifeforce.payer.review.dto.RequestedEvidence;
 import com.lifeforce.payer.review.dto.EvidenceRequestResponse;
 import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
@@ -83,8 +84,11 @@ class ReviewEvidenceServiceTests {
         assertEquals(review.getId(), response.reviewId());
         assertEquals(review.getRequestId(), response.requestId());
         assertEquals(reviewerId, response.reviewerId());
-        assertEquals("Please provide supporting clinical evidence", response.message());
-        assertEquals(List.of("EF observation", "Echocardiogram report"), response.requestedEvidence());
+        assertEquals("Please provide supporting clinical evidence", response.evidenceRequest().summary());
+        assertEquals(List.of("CHF"), response.evidenceRequest().requestedConditions());
+        assertEquals(List.of("EF"), response.evidenceRequest().requestedObservations());
+        assertEquals("Echocardiogram report", response.evidenceRequest().otherEvidence());
+        assertEquals(response.evidenceRequest().toDomain(), review.getEvidenceRequest());
         assertEquals(clock.instant(), response.requestedAt());
         assertEquals(ReviewStatus.AWAITING_EVIDENCE, response.reviewStatus());
         assertEquals(RequestStatus.PENDING, response.requestStatus());
@@ -101,8 +105,7 @@ class ReviewEvidenceServiceTests {
         assertEquals(RequestStatus.PENDING, history.getEventPayload().get("requestStatus"));
         assertEquals(RequestStatusReason.AWAITING_EVIDENCE, history.getEventPayload().get("statusReason"));
         assertEquals(reviewerId, history.getEventPayload().get("reviewerId"));
-        assertEquals(response.message(), history.getEventPayload().get("message"));
-        assertEquals(response.requestedEvidence(), history.getEventPayload().get("requestedEvidence"));
+        assertEquals(response.evidenceRequest().toDomain(), history.getEventPayload().get("evidenceRequest"));
         assertNull(history.getEventPayload().get("decision"));
         assertNull(history.getEventPayload().get("decidedBy"));
     }
@@ -163,7 +166,7 @@ class ReviewEvidenceServiceTests {
         Review review = givenManualReview();
         EvidenceRequestResponse firstResponse = reviewEvidenceService.requestEvidence(review.getId(), evidenceRequest());
         UUID secondReviewerId = UUID.randomUUID();
-        EvidenceRequest secondRequest = new EvidenceRequest(secondReviewerId, "Please provide the latest report", List.of("Latest report"));
+        EvidenceRequest secondRequest = new EvidenceRequest(secondReviewerId, new RequestedEvidence("Please provide the latest report", List.of(), List.of(), "Latest report"));
 
         EvidenceRequestResponse secondResponse = reviewEvidenceService.requestEvidence(review.getId(), secondRequest);
 
@@ -171,10 +174,10 @@ class ReviewEvidenceServiceTests {
         verify(reviewHistoryRepository, times(2)).save(histories.capture());
         assertNotEquals(firstResponse.id(), secondResponse.id());
         assertEquals(reviewerId, histories.getAllValues().getFirst().getEventPayload().get("reviewerId"));
-        assertEquals(firstResponse.message(), histories.getAllValues().getFirst().getEventPayload().get("message"));
+        assertEquals(firstResponse.evidenceRequest().toDomain(), histories.getAllValues().getFirst().getEventPayload().get("evidenceRequest"));
         assertEquals(secondReviewerId, histories.getAllValues().getLast().getEventPayload().get("reviewerId"));
-        assertEquals(secondRequest.message(), histories.getAllValues().getLast().getEventPayload().get("message"));
-        assertEquals(secondRequest.requestedEvidence(), histories.getAllValues().getLast().getEventPayload().get("requestedEvidence"));
+        assertEquals(secondRequest.evidenceRequest().toDomain(), histories.getAllValues().getLast().getEventPayload().get("evidenceRequest"));
+        assertEquals(secondRequest.evidenceRequest().toDomain(), review.getEvidenceRequest());
         assertEquals(ReviewStatus.AWAITING_EVIDENCE, review.getReviewStatus());
     }
 
@@ -182,13 +185,13 @@ class ReviewEvidenceServiceTests {
     void preservesRequestedItemsWhenCallerChangesItsList() {
         Review review = givenManualReview();
         List<String> requestedItems = new ArrayList<>(List.of("EF observation"));
-        EvidenceRequest request = new EvidenceRequest(reviewerId, "Please provide an EF observation", requestedItems);
+        EvidenceRequest request = new EvidenceRequest(reviewerId, new RequestedEvidence("Please provide an EF observation", null, requestedItems, null));
 
         EvidenceRequestResponse response = reviewEvidenceService.requestEvidence(review.getId(), request);
         requestedItems.add("Another item");
 
-        assertEquals(List.of("EF observation"), response.requestedEvidence());
-        assertEquals(List.of("EF observation"), capturedHistory().getEventPayload().get("requestedEvidence"));
+        assertEquals(List.of("EF observation"), response.evidenceRequest().requestedObservations());
+        assertEquals(response.evidenceRequest().toDomain(), capturedHistory().getEventPayload().get("evidenceRequest"));
     }
 
     @Test
@@ -237,7 +240,7 @@ class ReviewEvidenceServiceTests {
     }
 
     EvidenceRequest evidenceRequest() {
-        return new EvidenceRequest(reviewerId, "Please provide supporting clinical evidence", List.of("EF observation", "Echocardiogram report"));
+        return new EvidenceRequest(reviewerId, new RequestedEvidence("Please provide supporting clinical evidence", List.of("CHF"), List.of("EF"), "Echocardiogram report"));
     }
 
     ReviewHistory capturedHistory() {

@@ -8,12 +8,12 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record HttpAuthorizationRequest(
-    @Valid @NotNull UUID requestId,
-    @Valid @NotNull Instant submittedAt,
-    @Valid @NotNull UUID patientId,
-    @Valid @NotNull UUID providerId,
-    @Valid @NotNull UUID organizationId,
-    @Valid @NotNull UUID planId,
+    @NotNull UUID requestId,
+    @NotNull Instant submittedAt,
+    @NotNull UUID patientId,
+    @NotNull UUID providerId,
+    @NotNull UUID organizationId,
+    @NotNull UUID planId,
     @Valid @NotNull RequestedService requestedService,
     @Valid @NotNull ClinicalJustification clinicalJustification
 ) {

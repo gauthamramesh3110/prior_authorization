@@ -37,6 +37,22 @@ class ReviewSchedulerTests {
     }
 
     @Test
+    void continuesEvaluatingWhenOneReviewFails() {
+        Review firstReview = Review.createNewReview(UUID.randomUUID(), Clock.systemUTC());
+        Review secondReview = Review.createNewReview(UUID.randomUUID(), Clock.systemUTC());
+        when(reviewRepository.findByReviewStatusOrderByLastUpdatedAsc(ReviewStatus.PENDING_EVALUATION)).thenReturn(List.of(firstReview, secondReview));
+        doThrow(new IllegalStateException("Review failed")).when(reviewService).evaluateReview(firstReview.getId());
+        ReviewScheduler scheduler = new ReviewScheduler(reviewRepository, reviewService);
+
+        scheduler.processPendingReviews();
+
+        var orderedCalls = inOrder(reviewService);
+        orderedCalls.verify(reviewService).evaluateReview(firstReview.getId());
+        orderedCalls.verify(reviewService).evaluateReview(secondReview.getId());
+        verifyNoMoreInteractions(reviewService);
+    }
+
+    @Test
     void doesNotCallServiceWhenNoPendingReviewsExist() {
         ReviewScheduler scheduler = new ReviewScheduler(reviewRepository, reviewService);
 

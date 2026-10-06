@@ -11,6 +11,7 @@ import com.lifeforce.payer.request.service.RequestQueryService;
 import com.lifeforce.payer.review.domain.Decision;
 import com.lifeforce.payer.review.domain.DecisionActor;
 import com.lifeforce.payer.review.domain.Review;
+import com.lifeforce.payer.review.domain.RequestedEvidence;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.repository.ReviewRepository;
 import org.junit.jupiter.api.AfterEach;
@@ -176,7 +177,7 @@ class RequestQueryServiceTests {
         request.updateStatusToAwaitingEvidence();
         Review review = Review.createNewManualReview(request.getId(), clock);
         UUID reviewerId = UUID.randomUUID();
-        review.requestEvidence(reviewerId, clock);
+        review.requestEvidence(reviewerId, new RequestedEvidence("Provide an EF result", List.of(), List.of("EF"), null), clock);
         when(reviewRepository.findByRequestId(request.getId())).thenReturn(Optional.of(review));
 
         var details = requestQueryService.getProviderRequestDetails(request.getId(), providerId);
@@ -186,6 +187,7 @@ class RequestQueryServiceTests {
         assertEquals(ReviewStatus.AWAITING_EVIDENCE, details.review().reviewStatus());
         assertEquals(clock.instant(), details.review().lastUpdated());
         assertEquals(reviewerId, details.review().reviewerId());
+        assertEquals(review.getEvidenceRequest(), details.review().evidenceRequest().toDomain());
         assertNull(details.review().decision());
         assertNull(details.review().approvedQuantity());
         assertNull(details.review().validFrom());

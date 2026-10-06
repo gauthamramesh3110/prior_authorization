@@ -2,6 +2,7 @@ package com.lifeforce.payer.plan.service;
 
 import com.lifeforce.payer.plan.domain.policy.*;
 import com.lifeforce.payer.request.domain.ClinicalJustification;
+import com.lifeforce.payer.review.domain.RequestedEvidence;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -41,6 +42,22 @@ public class PlanEvalService {
         }
 
         return policy.getMatch().equals(Match.ALL) ? PolicyEvaluationResult.MATCHED : PolicyEvaluationResult.CRITERIA_NOT_MET;
+    }
+
+    public RequestedEvidence getRequestedEvidence(Policy policy, ClinicalJustification justification, Instant evidenceAt) {
+        List<String> requestedConditions = new ArrayList<>();
+        List<String> requestedObservations = new ArrayList<>();
+        for (PolicyCriterion criterion : policy.getPolicyCriteria()) {
+            if (evalCriterionForEvidence(criterion, justification, evidenceAt) != PolicyEvaluationResult.AWAITING_EVIDENCE) {
+                continue;
+            }
+            if (criterion.getEvidenceType() == EvidenceType.CONDITION) {
+                requestedConditions.add(criterion.getCode());
+            } else if (criterion.getEvidenceType() == EvidenceType.OBSERVATION) {
+                requestedObservations.add(criterion.getCode());
+            }
+        }
+        return new RequestedEvidence("Provide the missing clinical evidence required by the policy", requestedConditions, requestedObservations, null);
     }
 
     private PolicyEvaluationResult evalCriterionForEvidence(PolicyCriterion criterion, ClinicalJustification justification, Instant evidenceAt) {

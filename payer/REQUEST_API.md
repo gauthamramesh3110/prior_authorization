@@ -30,7 +30,7 @@ Use the authorization request ID in the path and its original provider ID in the
 
 - `request`: the same fields as a request-list item.
 - `clinicalJustification`: current combined clinical evidence.
-- `review`: review ID/status, `lastUpdated`, decision/reason/date, decision actor, reviewer ID, approved quantity, and validity dates.
+- `review`: review ID/status, `lastUpdated`, decision/reason/date, decision actor, reviewer ID, approved quantity, validity dates, and the latest structured `evidenceRequest`.
 
 `review` is `null` when no review exists. Decision fields are `null` until a decision is made. Intake rejections and approvals that do not require prior authorization remain trackable without a review.
 
@@ -40,12 +40,14 @@ Both endpoints only read data. Provider identity is supplied through `providerId
 
 ## Evidence requests and review timeline
 
-When a request has a `reviewId`, use:
+The current request for evidence is available at `review.evidenceRequest` in request details. It contains `summary`, simple `requestedConditions` and `requestedObservations` lists, and optional `otherEvidence` text. It is `null` until an evidence request is recorded. Use `reviewStatus` to determine whether evidence is currently awaited.
+
+For earlier evidence requests and events, when a request has a `reviewId`, use:
 
 ```http
 GET /api/v1/reviews/{reviewId}/history
 ```
 
-`EVIDENCE_REQUESTED` events include the reviewer's message and requested items. `UPDATED_EVIDENCE` events show submitted additions. The request details contain the merged current evidence. History is ordered oldest first and preserves earlier snapshots. See [review history](REVIEW_API.md#review-history).
+`EVIDENCE_REQUESTED` events include the structured `evidenceRequest`; older events retain their message and requested items. `UPDATED_EVIDENCE` events show submitted additions. The request details contain the merged current evidence. History is ordered oldest first and preserves earlier snapshots. See [review history](REVIEW_API.md#review-history).
 
 Submit additional evidence through `PATCH /api/v1/requests/{id}/evidence`, as described in [submit evidence](REVIEW_API.md#submit-evidence).

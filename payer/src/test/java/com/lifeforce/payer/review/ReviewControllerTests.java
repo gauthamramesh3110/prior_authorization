@@ -307,17 +307,40 @@ class ReviewControllerTests {
         );
     }
 
+    @Test
+    void returnsEvidenceRequestAndEvidenceUpdateTimeInReviewDetails() throws Exception {
+        ReviewDetails original = details(null);
+        ReviewDetails.RequestDetails request = original.request();
+        var evidenceRequest = new com.lifeforce.payer.review.dto.RequestedEvidence("Provide clinical evidence", List.of("CHF"), List.of("EF"), "Report");
+        ReviewDetails response = new ReviewDetails(
+                original.id(), ReviewStatus.PENDING_MANUAL_REVIEW, original.lastUpdated(), null, null, null, null, null,
+                null, null, null, new ReviewDetails.RequestDetails(
+                request.id(), request.patientId(), request.providerId(), request.organizationId(), request.planId(),
+                request.requestStatus(), request.requestStatusReason(), request.requestedService(), request.clinicalJustification(),
+                request.submittedAt(), submittedAt.plusSeconds(60)), null, evidenceRequest
+        );
+        when(reviewQueryService.getReviewDetails(reviewId)).thenReturn(Optional.of(response));
+
+        mockMvc.perform(get("/api/v1/reviews/{id}", reviewId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.evidenceRequest.summary").value("Provide clinical evidence"))
+                .andExpect(jsonPath("$.evidenceRequest.requestedConditions[0]").value("CHF"))
+                .andExpect(jsonPath("$.evidenceRequest.requestedObservations[0]").value("EF"))
+                .andExpect(jsonPath("$.evidenceRequest.otherEvidence").value("Report"))
+                .andExpect(jsonPath("$.request.evidenceUpdatedAt").value(submittedAt.plusSeconds(60).toString()));
+    }
+
     ReviewDetails details(ReviewDetails.PolicyDetails policy) {
         ClinicalJustification evidence = new ClinicalJustification("Clinical summary", List.of(), List.of(
                 new ClinicalJustification.ObservationEvidence("EF", new BigDecimal("35.1"), "%", null, submittedAt)
         ));
         ReviewDetails.RequestDetails request = new ReviewDetails.RequestDetails(
                 requestId, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
-                RequestStatus.PENDING, RequestStatusReason.CRITERIA_NOT_MET, requestedService(), evidence, submittedAt
+                RequestStatus.PENDING, RequestStatusReason.CRITERIA_NOT_MET, requestedService(), evidence, submittedAt, null
         );
         return new ReviewDetails(
                 reviewId, ReviewStatus.PENDING_MANUAL_REVIEW, submittedAt, null, null, null, null, null,
-                null, null, null, request, policy
+                null, null, null, request, policy, null
         );
     }
 

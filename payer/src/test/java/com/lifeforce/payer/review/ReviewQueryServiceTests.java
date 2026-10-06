@@ -150,6 +150,21 @@ class ReviewQueryServiceTests {
     }
 
     @Test
+    void returnsCurrentEvidenceRequestAndEvidenceUpdateTime() {
+        Review review = givenReview();
+        var requestedEvidence = new com.lifeforce.payer.review.domain.RequestedEvidence("Provide clinical evidence", List.of("CHF"), List.of("EF"), "Report");
+        review.requestEvidence(UUID.randomUUID(), requestedEvidence, clock);
+        review.getAuthorizationRequest().addEvidence(new ClinicalJustification("Updated evidence", null, null), clock);
+        review.updateStatusToManualReview(clock);
+
+        ReviewDetails details = reviewQueryService.getReviewDetails(review.getId()).orElseThrow();
+
+        assertEquals(requestedEvidence, details.evidenceRequest().toDomain());
+        assertEquals(clock.instant(), details.request().evidenceUpdatedAt());
+        assertEquals(submittedAt, details.request().submittedAt());
+    }
+
+    @Test
     void returnsDetailsWithoutPolicyWhenServiceIsUnconfigured() {
         Review review = givenReview();
 

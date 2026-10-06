@@ -35,6 +35,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -100,9 +102,11 @@ class AuthorizationRequestServiceTests {
         HttpAuthorizationRequest request = request("PA");
         when(authorizationRequestRepository.existsById(request.requestId())).thenReturn(true);
 
-        var response = authorizationRequestService.createAuthorizationRequest(request);
+        ResponseStatusException failure = assertThrows(ResponseStatusException.class, () ->
+                authorizationRequestService.createAuthorizationRequest(request)
+        );
 
-        assertEquals(ResponseStatus.DUPLICATE_REJECTED, response.responseStatus());
+        assertEquals(HttpStatus.BAD_REQUEST, failure.getStatusCode());
         verify(authorizationRequestRepository, never()).save(any());
         verifyNoInteractions(patientRepository, organizationRepository, providerRepository, planRepository);
     }
@@ -326,9 +330,11 @@ class AuthorizationRequestServiceTests {
     }
 
     void assertMalformedRequest(String message) {
-        var response = authorizationRequestService.createAuthorizationRequest(request("PA"));
-        assertEquals(ResponseStatus.MALFORMED_REQUEST, response.responseStatus());
-        assertEquals(message, response.message());
+        ResponseStatusException failure = assertThrows(ResponseStatusException.class, () ->
+                authorizationRequestService.createAuthorizationRequest(request("PA"))
+        );
+        assertEquals(HttpStatus.BAD_REQUEST, failure.getStatusCode());
+        assertEquals(message, failure.getReason());
         verify(authorizationRequestRepository, never()).save(any());
         assertNoReview();
     }

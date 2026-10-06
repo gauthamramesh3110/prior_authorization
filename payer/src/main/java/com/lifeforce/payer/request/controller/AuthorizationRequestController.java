@@ -7,15 +7,12 @@ import com.lifeforce.payer.request.dto.EvidenceSubmission;
 import com.lifeforce.payer.request.dto.EvidenceSubmissionResponse;
 import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
 import com.lifeforce.payer.request.dto.HttpAuthorizationResponse;
-import com.lifeforce.payer.request.dto.ResponseStatus;
 import com.lifeforce.payer.request.service.AuthorizationRequestService;
 import com.lifeforce.payer.request.service.EvidenceSubmissionService;
 import com.lifeforce.payer.request.service.RequestQueryService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.validation.BindingResult;
-import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -58,23 +55,7 @@ public class AuthorizationRequestController {
     }
 
     @PostMapping("")
-    public ResponseEntity<HttpAuthorizationResponse> createRequest(@RequestBody @Validated HttpAuthorizationRequest request, BindingResult result) {
-        if  (result.hasErrors()) {
-            System.err.println(result.getAllErrors());
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(new HttpAuthorizationResponse(
-                    request.requestId(),
-                    ResponseStatus.MALFORMED_REQUEST,
-                    result.getAllErrors().getFirst().getDefaultMessage()
-            ));
-        }
-
-        HttpAuthorizationResponse response = authorizationRequestService.createAuthorizationRequest(request);
-
-        if (ResponseStatus.SUBMITTED.equals(response.responseStatus())) {
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        }
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    public ResponseEntity<HttpAuthorizationResponse> createRequest(@RequestBody @Valid HttpAuthorizationRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authorizationRequestService.createAuthorizationRequest(request));
     }
-
 }

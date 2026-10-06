@@ -3,6 +3,8 @@ package com.lifeforce.payer.review.domain;
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import jakarta.persistence.*;
 import lombok.Getter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Clock;
 import java.time.Instant;
@@ -41,6 +43,10 @@ public class Review {
     Instant validTo;
 
     Integer approvedQuantity;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "evidence_request", columnDefinition = "jsonb")
+    RequestedEvidence evidenceRequest;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "request_id", insertable = false, updatable = false, nullable = false)
@@ -85,8 +91,13 @@ public class Review {
         this.lastUpdated = Instant.now(clock);
     }
 
-    public void requestEvidence(UUID reviewerId, Clock clock) {
+    public void requestEvidence(RequestedEvidence evidenceRequest, Clock clock) {
         updateStatusToAwaitingEvidence(clock);
+        this.evidenceRequest = evidenceRequest;
+    }
+
+    public void requestEvidence(UUID reviewerId, RequestedEvidence evidenceRequest, Clock clock) {
+        requestEvidence(evidenceRequest, clock);
         this.reviewerId = reviewerId;
     }
 

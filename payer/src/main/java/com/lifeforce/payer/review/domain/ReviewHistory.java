@@ -45,11 +45,9 @@ public class ReviewHistory {
         return createEvent(review, review.getAuthorizationRequest(), "REVIEWER");
     }
 
-    public static ReviewHistory createEvidenceRequestedEvent(Review review, String message, List<String> requestedEvidence) {
+    public static ReviewHistory createEvidenceRequestedEvent(Review review) {
         ReviewHistory history = createReviewerEvent(review);
         history.eventType = "EVIDENCE_REQUESTED";
-        history.eventPayload.put("message", message);
-        history.eventPayload.put("requestedEvidence", List.copyOf(requestedEvidence));
         return history;
     }
 
@@ -84,6 +82,7 @@ public class ReviewHistory {
         history.eventPayload.put("reviewerId", review.getReviewerId());
         history.eventPayload.put("validFrom", review.getValidFrom());
         history.eventPayload.put("validTo", review.getValidTo());
+        history.eventPayload.put("evidenceRequest", review.getEvidenceRequest());
         return history;
     }
 }

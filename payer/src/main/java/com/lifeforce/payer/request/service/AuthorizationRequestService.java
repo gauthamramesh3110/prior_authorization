@@ -19,8 +19,10 @@ import com.lifeforce.payer.review.domain.Review;
 import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Clock;
 import java.util.List;
@@ -56,43 +58,23 @@ public class AuthorizationRequestService {
     public HttpAuthorizationResponse createAuthorizationRequest(HttpAuthorizationRequest request) {
         boolean isDuplicate = authorizationRequestRepository.existsById(request.requestId());
         if (isDuplicate) {
-            return new HttpAuthorizationResponse(
-                    request.requestId(),
-                    ResponseStatus.DUPLICATE_REJECTED,
-                    "Request has already been submitted"
-            );
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Request has already been submitted");
         }
 
         if (!patientRepository.existsById(request.patientId())) {
-            return new HttpAuthorizationResponse(
-                    request.requestId(),
-                    ResponseStatus.MALFORMED_REQUEST,
-                    "Patient does not exist"
-            );
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Patient does not exist");
         }
 
         if (!organizationRepository.existsById(request.organizationId())) {
-            return new HttpAuthorizationResponse(
-                    request.requestId(),
-                    ResponseStatus.MALFORMED_REQUEST,
-                    "Organization does not exist"
-            );
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Organization does not exist");
         }
 
         if (!providerRepository.existsByIdAndOrganizationId(request.providerId(), request.organizationId())) {
-            return new HttpAuthorizationResponse(
-                    request.requestId(),
-                    ResponseStatus.MALFORMED_REQUEST,
-                    "Provider does not exist or does not belong to organization"
-            );
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Provider does not exist or does not belong to organization");
         }
 
         if (!planRepository.existsById(request.planId())) {
-            return new HttpAuthorizationResponse(
-                    request.requestId(),
-                    ResponseStatus.MALFORMED_REQUEST,
-                    "Plan does not exist"
-            );
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Plan does not exist");
         }
 
         AuthorizationRequest authorizationRequest = request.toDomain();

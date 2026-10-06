@@ -10,7 +10,7 @@ import com.lifeforce.payer.review.dto.EvidenceRequest;
 import com.lifeforce.payer.review.dto.EvidenceRequestResponse;
 import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -44,11 +44,11 @@ public class ReviewEvidenceService {
         }
 
         request.updateStatusToAwaitingEvidence();
-        review.requestEvidence(evidenceRequest.reviewerId(), clock);
-        ReviewHistory history = ReviewHistory.createEvidenceRequestedEvent(review, evidenceRequest.message(), evidenceRequest.requestedEvidence());
+        review.requestEvidence(evidenceRequest.reviewerId(), evidenceRequest.evidenceRequest().toDomain(), clock);
+        ReviewHistory history = ReviewHistory.createEvidenceRequestedEvent(review);
         authorizationRequestRepository.save(request);
         reviewRepository.save(review);
         reviewHistoryRepository.save(history);
-        return EvidenceRequestResponse.from(review, history, evidenceRequest);
+        return EvidenceRequestResponse.from(review, history);
     }
 }

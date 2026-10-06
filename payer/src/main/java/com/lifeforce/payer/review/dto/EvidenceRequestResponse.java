@@ -7,7 +7,6 @@ import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 
 import java.time.Instant;
-import java.util.List;
 import java.util.UUID;
 
 public record EvidenceRequestResponse(
@@ -15,17 +14,16 @@ public record EvidenceRequestResponse(
         UUID reviewId,
         UUID requestId,
         UUID reviewerId,
-        String message,
-        List<String> requestedEvidence,
+        RequestedEvidence evidenceRequest,
         Instant requestedAt,
         ReviewStatus reviewStatus,
         RequestStatus requestStatus,
         RequestStatusReason requestStatusReason
 ) {
-    public static EvidenceRequestResponse from(Review review, ReviewHistory history, EvidenceRequest request) {
+    public static EvidenceRequestResponse from(Review review, ReviewHistory history) {
         return new EvidenceRequestResponse(
-                history.getId(), review.getId(), review.getRequestId(), review.getReviewerId(), request.message(),
-                List.copyOf(request.requestedEvidence()), history.getEventAt(), review.getReviewStatus(),
+                history.getId(), review.getId(), review.getRequestId(), review.getReviewerId(),
+                RequestedEvidence.from(review.getEvidenceRequest()), history.getEventAt(), review.getReviewStatus(),
                 review.getAuthorizationRequest().getRequestStatus(), review.getAuthorizationRequest().getRequestStatusReason()
         );
     }

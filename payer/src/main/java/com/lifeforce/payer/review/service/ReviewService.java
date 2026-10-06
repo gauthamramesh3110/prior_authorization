@@ -7,12 +7,13 @@ import com.lifeforce.payer.plan.repository.PlanServiceRepository;
 import com.lifeforce.payer.plan.service.PlanEvalService;
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import com.lifeforce.payer.request.domain.RequestedService;
+import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.review.domain.Review;
 import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
 import com.lifeforce.payer.review.repository.ReviewRepository;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.time.Clock;
@@ -27,12 +28,14 @@ public class ReviewService {
     private final ReviewHistoryRepository reviewHistoryRepository;
     private final PlanServiceRepository planServiceRepository;
     private final Clock clock;
-    public ReviewService(PlanEvalService planEvalService, ReviewRepository reviewRepository, ReviewHistoryRepository reviewHistoryRepository, PlanServiceRepository planServiceRepository, Clock clock) {
+    private final AuthorizationRequestRepository authorizationRequestRepository;
+    public ReviewService(PlanEvalService planEvalService, ReviewRepository reviewRepository, ReviewHistoryRepository reviewHistoryRepository, PlanServiceRepository planServiceRepository, AuthorizationRequestRepository authorizationRequestRepository, Clock clock) {
         this.planEvalService = planEvalService;
         this.reviewRepository = reviewRepository;
         this.reviewHistoryRepository = reviewHistoryRepository;
         this.planServiceRepository = planServiceRepository;
         this.clock = clock;
+        this.authorizationRequestRepository = authorizationRequestRepository;
     }
 
     @Transactional
@@ -65,7 +68,9 @@ public class ReviewService {
         }
         if (result == PolicyEvaluationResult.AWAITING_EVIDENCE) {
             authorizationRequest.updateStatusToAwaitingEvidence();
-            currentReview.updateStatusToAwaitingEvidence(clock);
+            currentReview.requestEvidence(planEvalService.getRequestedEvidence(
+                    planService.get().getPolicy(), authorizationRequest.getClinicalJustification(), authorizationRequest.getEvidenceEvaluationAt()
+            ), clock);
             saveReview(currentReview);
             return;
         }
@@ -80,6 +85,7 @@ public class ReviewService {
     }
 
     private void saveReview(Review review) {
+        authorizationRequestRepository.save(review.getAuthorizationRequest());
         reviewRepository.save(review);
         reviewHistoryRepository.save(ReviewHistory.createSystemEvent(review));
     }

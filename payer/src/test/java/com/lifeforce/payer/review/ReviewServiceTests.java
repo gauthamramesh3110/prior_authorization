@@ -14,6 +14,8 @@ import com.lifeforce.payer.request.domain.RequestedService;
 import com.lifeforce.payer.review.domain.Decision;
 import com.lifeforce.payer.review.domain.DecisionActor;
 import com.lifeforce.payer.review.domain.Review;
+import com.lifeforce.payer.review.domain.RequestedEvidence;
+import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
@@ -48,6 +50,7 @@ class ReviewServiceTests {
     @Mock ReviewRepository reviewRepository;
     @Mock ReviewHistoryRepository reviewHistoryRepository;
     @Mock PlanServiceRepository planServiceRepository;
+    @Mock AuthorizationRequestRepository authorizationRequestRepository;
 
     ReviewService reviewService;
     Instant submittedAt = Instant.parse("2019-06-01T00:00:00Z");
@@ -55,7 +58,7 @@ class ReviewServiceTests {
 
     @BeforeEach
     void createService() {
-        reviewService = new ReviewService(planEvalService, reviewRepository, reviewHistoryRepository, planServiceRepository, clock);
+        reviewService = new ReviewService(planEvalService, reviewRepository, reviewHistoryRepository, planServiceRepository, authorizationRequestRepository, clock);
     }
 
     @Test
@@ -63,7 +66,7 @@ class ReviewServiceTests {
         reviewService.evaluateReview(UUID.randomUUID());
 
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(planServiceRepository, planEvalService, reviewHistoryRepository);
+        verifyNoInteractions(planServiceRepository, planEvalService, reviewHistoryRepository, authorizationRequestRepository);
     }
 
     @ParameterizedTest
@@ -76,7 +79,7 @@ class ReviewServiceTests {
 
         assertEquals(status, review.getReviewStatus());
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(planServiceRepository, planEvalService, reviewHistoryRepository);
+        verifyNoInteractions(planServiceRepository, planEvalService, reviewHistoryRepository, authorizationRequestRepository);
     }
 
     @Test
@@ -185,6 +188,33 @@ class ReviewServiceTests {
         verifyNoInteractions(reviewHistoryRepository);
     }
 
+    @Test
+    void savesStructuredMissingEvidenceWithTheReviewAndHistory() {
+        Review review = givenPendingReview();
+        Policy policy = new Policy();
+        givenPolicyResult(review, policy, PolicyEvaluationResult.AWAITING_EVIDENCE);
+
+        reviewService.evaluateReview(review.getId());
+
+        assertEquals(List.of("CHF"), review.getEvidenceRequest().requestedConditions());
+        assertEquals(List.of("EF"), review.getEvidenceRequest().requestedObservations());
+        verify(planEvalService).getRequestedEvidence(policy, review.getAuthorizationRequest().getClinicalJustification(), submittedAt);
+        assertOutcome(review, ReviewStatus.AWAITING_EVIDENCE, RequestStatus.PENDING, RequestStatusReason.AWAITING_EVIDENCE);
+        assertSavedHistory(review);
+    }
+
+    @Test
+    void doesNotSaveReviewOrHistoryWhenRequestSaveFails() {
+        Review review = givenPendingReview();
+        givenPolicyResult(review, new Policy(), PolicyEvaluationResult.MATCHED);
+        IllegalStateException failure = new IllegalStateException("Request unavailable");
+        doThrow(failure).when(authorizationRequestRepository).save(review.getAuthorizationRequest());
+
+        assertSame(failure, assertThrows(IllegalStateException.class, () -> reviewService.evaluateReview(review.getId())));
+        verify(reviewRepository, never()).save(any());
+        verifyNoInteractions(reviewHistoryRepository);
+    }
+
     Review givenPendingReview() {
         AuthorizationRequest request = new AuthorizationRequest().build(
                 UUID.randomUUID(), submittedAt, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
@@ -204,6 +234,10 @@ class ReviewServiceTests {
         ReflectionTestUtils.setField(planService, "policy", policy);
         when(planServiceRepository.findByPlanIdAndCodeAndCodeType(request.getPlanId(), "PA", CodeType.PROCEDURE)).thenReturn(Optional.of(planService));
         when(planEvalService.evalPolicyForEvidence(policy, request.getClinicalJustification(), submittedAt)).thenReturn(result);
+        if (result == PolicyEvaluationResult.AWAITING_EVIDENCE) {
+            when(planEvalService.getRequestedEvidence(policy, request.getClinicalJustification(), submittedAt))
+                    .thenReturn(new RequestedEvidence("Provide missing evidence", List.of("CHF"), List.of("EF"), null));
+        }
     }
 
     void assertOutcome(Review review, ReviewStatus status, RequestStatus requestStatus, RequestStatusReason reason) {
@@ -211,6 +245,7 @@ class ReviewServiceTests {
         assertEquals(requestStatus, review.getAuthorizationRequest().getRequestStatus());
         assertEquals(reason, review.getAuthorizationRequest().getRequestStatusReason());
         assertEquals(clock.instant(), review.getLastUpdated());
+        verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
         verify(reviewRepository).save(review);
     }
 
@@ -227,5 +262,6 @@ class ReviewServiceTests {
         assertEquals(review.getAuthorizationRequest().getRequestStatusReason(), history.getEventPayload().get("statusReason"));
         assertEquals(review.getDecision(), history.getEventPayload().get("decision"));
         assertEquals(review.getApprovedQuantity(), history.getEventPayload().get("approvedQuantity"));
+        assertEquals(review.getEvidenceRequest(), history.getEventPayload().get("evidenceRequest"));
     }
 }

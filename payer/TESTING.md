@@ -16,12 +16,12 @@ Provider request query tests mock repositories and check provider/status filteri
 
 DTO mapping tests check conversion into domain value objects and compatibility with existing requested-service and clinical-evidence JSON.
 
-Controller tests use standalone MockMvc with a mocked service. Scheduler tests mock both the repository and the service.
+Controller tests use standalone MockMvc with a mocked service. Scheduler tests mock both the repository and the service and verify that processing continues after one service call fails. Policy evaluator tests verify that structured evidence requests include only missing codes. Detail tests cover the structured request and evidence update timestamp.
 
 Run the tests from the repository root:
 
 ```powershell
-.\payer\mvnw.cmd -B -f pom.xml -pl payer '-Dmaven.compiler.proc=full' test
+.\payer\mvnw.cmd -B -f pom.xml -pl payer test
 ```
 
-Use the project's JDK 26. The compiler flag enables the existing Lombok annotation processor configuration.
+Use the project's JDK 26. The payer Maven configuration enables the existing Lombok annotation processor.

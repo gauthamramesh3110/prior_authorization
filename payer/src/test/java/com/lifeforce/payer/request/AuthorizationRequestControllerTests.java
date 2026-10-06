@@ -18,6 +18,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
@@ -73,15 +75,13 @@ class AuthorizationRequestControllerTests {
     }
 
     @ParameterizedTest
-    @EnumSource(value = ResponseStatus.class, mode = EnumSource.Mode.EXCLUDE, names = "SUBMITTED")
-    void returnsBadRequestForRejectedSubmission(ResponseStatus responseStatus) throws Exception {
-        when(authorizationRequestService.createAuthorizationRequest(any())).thenReturn(
-                new HttpAuthorizationResponse(requestId, responseStatus, "Rejected")
-        );
+    @EnumSource(value = HttpStatus.class, names = {"BAD_REQUEST", "CONFLICT"})
+    void returnsStatusFromServiceException(HttpStatus failureStatus) throws Exception {
+        when(authorizationRequestService.createAuthorizationRequest(any()))
+                .thenThrow(new ResponseStatusException(failureStatus, "Rejected"));
 
         mockMvc.perform(post("/api/v1/requests").contentType(MediaType.APPLICATION_JSON).content(requestBody()))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.responseStatus").value(responseStatus.name()));
+                .andExpect(status().is(failureStatus.value()));
     }
 
     @ParameterizedTest
@@ -157,8 +157,7 @@ class AuthorizationRequestControllerTests {
 
     void assertMalformedRequest(String body) throws Exception {
         mockMvc.perform(post("/api/v1/requests").contentType(MediaType.APPLICATION_JSON).content(body))
-                .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.responseStatus").value("MALFORMED_REQUEST"));
+                .andExpect(status().isBadRequest());
         verifyNoInteractions(authorizationRequestService);
     }
 

@@ -10,6 +10,7 @@ import com.lifeforce.payer.request.dto.EvidenceSubmissionResponse;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.request.service.EvidenceSubmissionService;
 import com.lifeforce.payer.review.domain.Review;
+import com.lifeforce.payer.review.domain.RequestedEvidence;
 import com.lifeforce.payer.review.domain.ReviewHistory;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.repository.ReviewHistoryRepository;
@@ -111,7 +112,7 @@ class EvidenceSubmissionServiceTests {
     void returnsReviewerRequestedEvidenceToManualReview() {
         Review review = givenAwaitingReview();
         UUID reviewerId = UUID.randomUUID();
-        review.requestEvidence(reviewerId, Clock.fixed(submittedAt, ZoneOffset.UTC));
+        review.requestEvidence(reviewerId, new RequestedEvidence("Provide an EF result", List.of(), List.of("EF"), null), Clock.fixed(submittedAt, ZoneOffset.UTC));
 
         evidenceSubmissionService.submitEvidence(review.getRequestId(), new EvidenceSubmission(providerId, additionalEvidence()));
 
@@ -278,7 +279,7 @@ class EvidenceSubmissionServiceTests {
         Review review = givenAwaitingReview();
         ClinicalJustification firstAdditions = additionalEvidence();
         evidenceSubmissionService.submitEvidence(review.getRequestId(), new EvidenceSubmission(providerId, firstAdditions));
-        review.requestEvidence(UUID.randomUUID(), clock);
+        review.requestEvidence(UUID.randomUUID(), new RequestedEvidence("Provide an EF result", List.of(), List.of("EF"), null), clock);
         review.getAuthorizationRequest().updateStatusToAwaitingEvidence();
         ClinicalJustification secondAdditions = new ClinicalJustification("Further clinical context", null, null);
 

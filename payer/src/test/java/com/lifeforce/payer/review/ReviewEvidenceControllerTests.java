@@ -5,6 +5,7 @@ import com.lifeforce.payer.request.domain.RequestStatusReason;
 import com.lifeforce.payer.review.controller.ReviewController;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import com.lifeforce.payer.review.dto.EvidenceRequest;
+import com.lifeforce.payer.review.dto.RequestedEvidence;
 import com.lifeforce.payer.review.dto.EvidenceRequestResponse;
 import com.lifeforce.payer.review.service.ReviewDecisionService;
 import com.lifeforce.payer.review.service.ReviewEvidenceService;
@@ -70,8 +71,7 @@ class ReviewEvidenceControllerTests {
     void requestsEvidenceAndReturnsUpdatedStatusesAndRequestedItems() throws Exception {
         UUID evidenceRequestId = UUID.randomUUID();
         EvidenceRequestResponse response = new EvidenceRequestResponse(
-                evidenceRequestId, reviewId, requestId, reviewerId, "Please provide supporting evidence",
-                List.of("EF observation", "Echocardiogram report"), requestedAt,
+                evidenceRequestId, reviewId, requestId, reviewerId, new RequestedEvidence("Please provide supporting evidence", List.of("CHF"), List.of("EF"), "Echocardiogram report"), requestedAt,
                 ReviewStatus.AWAITING_EVIDENCE, RequestStatus.PENDING, RequestStatusReason.AWAITING_EVIDENCE
         );
         when(reviewEvidenceService.requestEvidence(eq(reviewId), any())).thenReturn(response);
@@ -83,9 +83,10 @@ class ReviewEvidenceControllerTests {
                 .andExpect(jsonPath("$.reviewId").value(reviewId.toString()))
                 .andExpect(jsonPath("$.requestId").value(requestId.toString()))
                 .andExpect(jsonPath("$.reviewerId").value(reviewerId.toString()))
-                .andExpect(jsonPath("$.message").value(response.message()))
-                .andExpect(jsonPath("$.requestedEvidence[0]").value("EF observation"))
-                .andExpect(jsonPath("$.requestedEvidence[1]").value("Echocardiogram report"))
+                .andExpect(jsonPath("$.evidenceRequest.summary").value(response.evidenceRequest().summary()))
+                .andExpect(jsonPath("$.evidenceRequest.requestedConditions[0]").value("CHF"))
+                .andExpect(jsonPath("$.evidenceRequest.requestedObservations[0]").value("EF"))
+                .andExpect(jsonPath("$.evidenceRequest.otherEvidence").value("Echocardiogram report"))
                 .andExpect(jsonPath("$.requestedAt").value(requestedAt.toString()))
                 .andExpect(jsonPath("$.reviewStatus").value("AWAITING_EVIDENCE"))
                 .andExpect(jsonPath("$.requestStatus").value("PENDING"))
@@ -93,12 +94,11 @@ class ReviewEvidenceControllerTests {
         ArgumentCaptor<EvidenceRequest> request = ArgumentCaptor.forClass(EvidenceRequest.class);
         verify(reviewEvidenceService).requestEvidence(eq(reviewId), request.capture());
         assertEquals(reviewerId, request.getValue().reviewerId());
-        assertEquals(response.message(), request.getValue().message());
-        assertEquals(response.requestedEvidence(), request.getValue().requestedEvidence());
+        assertEquals(response.evidenceRequest(), request.getValue().evidenceRequest());
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"reviewerId", "message", "requestedEvidence"})
+    @ValueSource(strings = {"reviewerId", "evidenceRequest"})
     void rejectsMissingFieldsBeforeCallingService(String field) throws Exception {
         ObjectNode body = (ObjectNode) new ObjectMapper().readTree(requestBody());
         body.putNull(field);
@@ -108,19 +108,31 @@ class ReviewEvidenceControllerTests {
 
     @ParameterizedTest
     @ValueSource(strings = {"", "   "})
-    void rejectsBlankMessageBeforeCallingService(String message) throws Exception {
+    void rejectsBlankSummaryBeforeCallingService(String summary) throws Exception {
         ObjectNode body = (ObjectNode) new ObjectMapper().readTree(requestBody());
-        body.put("message", message);
+        body.withObject("evidenceRequest").put("summary", summary);
 
         assertInvalidBody(body.toString());
     }
 
     @Test
-    void rejectsEmptyRequestedItemsBeforeCallingService() throws Exception {
+    void rejectsMissingSummaryBeforeCallingService() throws Exception {
         ObjectNode body = (ObjectNode) new ObjectMapper().readTree(requestBody());
-        body.putArray("requestedEvidence");
+        body.withObject("evidenceRequest").putNull("summary");
 
         assertInvalidBody(body.toString());
+    }
+
+    @Test
+    void acceptsAnEvidenceRequestWithOnlySummaryAndOtherEvidence() throws Exception {
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(requestBody());
+        body.withObject("evidenceRequest").remove("requestedConditions");
+        body.withObject("evidenceRequest").remove("requestedObservations");
+
+        mockMvc.perform(post("/api/v1/reviews/{id}/evidence-requests", reviewId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk());
+        verify(reviewEvidenceService).requestEvidence(eq(reviewId), any());
     }
 
     @ParameterizedTest
@@ -128,7 +140,7 @@ class ReviewEvidenceControllerTests {
     @ValueSource(strings = {"", "   "})
     void rejectsInvalidRequestedItemBeforeCallingService(String item) throws Exception {
         ObjectNode body = (ObjectNode) new ObjectMapper().readTree(requestBody());
-        body.putArray("requestedEvidence").add(item);
+        body.withObject("evidenceRequest").putArray("requestedObservations").add(item);
 
         assertInvalidBody(body.toString());
     }
@@ -172,7 +184,7 @@ class ReviewEvidenceControllerTests {
 
     String requestBody() {
         return """
-                {"reviewerId":"%s","message":"Please provide supporting evidence","requestedEvidence":["EF observation","Echocardiogram report"]}
+                {"reviewerId":"%s","evidenceRequest":{"summary":"Please provide supporting evidence","requestedConditions":["CHF"],"requestedObservations":["EF"],"otherEvidence":"Echocardiogram report"}}
                 """.formatted(reviewerId);
     }
 }

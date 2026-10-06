@@ -45,6 +45,22 @@ class AuthorizationRequestSchedulerTests {
         verifyNoInteractions(authorizationRequestService);
     }
 
+    @Test
+    void continuesProcessingWhenOneRequestFails() {
+        AuthorizationRequest firstRequest = request();
+        AuthorizationRequest secondRequest = request();
+        when(authorizationRequestRepository.findByRequestStatus(RequestStatus.SUBMITTED)).thenReturn(List.of(firstRequest, secondRequest));
+        doThrow(new IllegalStateException("Request failed")).when(authorizationRequestService).processSubmittedRequest(firstRequest.getId());
+        AuthorizationRequestScheduler scheduler = new AuthorizationRequestScheduler(authorizationRequestRepository, authorizationRequestService);
+
+        scheduler.processSubmittedRequests();
+
+        var orderedCalls = inOrder(authorizationRequestService);
+        orderedCalls.verify(authorizationRequestService).processSubmittedRequest(firstRequest.getId());
+        orderedCalls.verify(authorizationRequestService).processSubmittedRequest(secondRequest.getId());
+        verifyNoMoreInteractions(authorizationRequestService);
+    }
+
     AuthorizationRequest request() {
         AuthorizationRequest request = new AuthorizationRequest();
         ReflectionTestUtils.setField(request, "id", UUID.randomUUID());
