@@ -27,6 +27,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Clock;
@@ -52,6 +53,17 @@ class ReviewServiceTests {
     Instant submittedAt = Instant.parse("2019-06-01T00:00:00Z");
     Clock clock = Clock.fixed(Instant.parse("2026-10-05T12:00:00Z"), ZoneOffset.UTC);
 
+    @Test
+    void stopsEvaluationWhenRequestLockFails() {
+        UUID reviewId = UUID.randomUUID();
+        CannotAcquireLockException failure = new CannotAcquireLockException("Request is locked");
+        when(authorizationRequestRepository.findByReviewIdForUpdate(reviewId)).thenThrow(failure);
+
+        assertSame(failure, assertThrows(CannotAcquireLockException.class, () -> reviewService.evaluateReview(reviewId)));
+        verifyNoInteractions(reviewRepository, planServiceRepository, policyEvaluationService);
+        verify(authorizationRequestRepository, never()).save(any());
+    }
+
     @BeforeEach
     void createService() {
         reviewService = new ReviewService(policyEvaluationService, reviewRepository, planServiceRepository, authorizationRequestRepository, clock);
@@ -61,8 +73,9 @@ class ReviewServiceTests {
     void ignoresMissingReview() {
         reviewService.evaluateReview(UUID.randomUUID());
 
-        verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(planServiceRepository, policyEvaluationService, authorizationRequestRepository);
+        verify(authorizationRequestRepository).findByReviewIdForUpdate(any());
+        verifyNoInteractions(reviewRepository, planServiceRepository, policyEvaluationService);
+        verify(authorizationRequestRepository, never()).save(any());
     }
 
     @ParameterizedTest
@@ -75,7 +88,8 @@ class ReviewServiceTests {
 
         assertEquals(status, review.getReviewStatus());
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(planServiceRepository, policyEvaluationService, authorizationRequestRepository);
+        verifyNoInteractions(planServiceRepository, policyEvaluationService);
+        verify(authorizationRequestRepository, never()).save(any());
     }
 
     @Test
@@ -212,6 +226,7 @@ class ReviewServiceTests {
         request.updateStatusToPendingEvaluation();
         Review review = Review.createNewEvaluationReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
         ReflectionTestUtils.setField(review, "authorizationRequest", request);
+        when(authorizationRequestRepository.findByReviewIdForUpdate(review.getId())).thenReturn(Optional.of(request));
         when(reviewRepository.findById(review.getId())).thenReturn(Optional.of(review));
         return review;
     }
@@ -229,6 +244,11 @@ class ReviewServiceTests {
     }
 
     void assertOutcome(Review review, ReviewStatus status, RequestStatus requestStatus, RequestStatusReason reason) {
+        var calls = inOrder(authorizationRequestRepository, reviewRepository);
+        calls.verify(authorizationRequestRepository).findByReviewIdForUpdate(review.getId());
+        calls.verify(reviewRepository).findById(review.getId());
+        calls.verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
+        calls.verify(reviewRepository).save(review);
         assertEquals(status, review.getReviewStatus());
         assertEquals(requestStatus, review.getAuthorizationRequest().getRequestStatus());
         assertEquals(reason, review.getAuthorizationRequest().getRequestStatusReason());

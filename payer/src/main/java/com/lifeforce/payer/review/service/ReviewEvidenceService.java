@@ -30,10 +30,12 @@ public class ReviewEvidenceService {
 
     @Transactional
     public EvidenceRequestResponse requestEvidence(UUID reviewId, EvidenceRequest evidenceRequest) {
+        AuthorizationRequest request = authorizationRequestRepository.findByReviewIdForUpdate(reviewId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Review does not exist")
+        );
         Review review = reviewRepository.findById(reviewId).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Review does not exist")
         );
-        AuthorizationRequest request = review.getAuthorizationRequest();
         if ((review.getReviewStatus() != ReviewStatus.PENDING_MANUAL_REVIEW && review.getReviewStatus() != ReviewStatus.AWAITING_EVIDENCE)
                 || request.getRequestStatus() != RequestStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Review is not pending manual review or awaiting evidence");

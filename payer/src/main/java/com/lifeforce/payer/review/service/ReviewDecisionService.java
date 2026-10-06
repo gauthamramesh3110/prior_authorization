@@ -31,10 +31,12 @@ public class ReviewDecisionService {
 
     @Transactional
     public ManualDecisionResponse submitManualDecision(UUID reviewId, ManualDecisionRequest decisionRequest) {
+        AuthorizationRequest request = authorizationRequestRepository.findByReviewIdForUpdate(reviewId).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Review does not exist")
+        );
         Review review = reviewRepository.findById(reviewId).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Review does not exist")
         );
-        AuthorizationRequest request = review.getAuthorizationRequest();
         if (review.getReviewStatus() != ReviewStatus.PENDING_MANUAL_REVIEW || request.getRequestStatus() != RequestStatus.PENDING) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Review is not pending manual review");
         }

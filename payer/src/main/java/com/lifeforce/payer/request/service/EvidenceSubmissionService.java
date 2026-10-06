@@ -31,7 +31,7 @@ public class EvidenceSubmissionService {
 
     @Transactional
     public EvidenceSubmissionResponse submitEvidence(UUID requestId, EvidenceSubmission submission) {
-        AuthorizationRequest request = authorizationRequestRepository.findById(requestId).orElseThrow(
+        AuthorizationRequest request = authorizationRequestRepository.findByIdForUpdate(requestId).orElseThrow(
                 () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Authorization request does not exist")
         );
         if (!request.getProviderId().equals(submission.providerId())) {

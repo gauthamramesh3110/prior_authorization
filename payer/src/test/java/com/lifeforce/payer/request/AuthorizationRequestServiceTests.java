@@ -32,6 +32,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
@@ -66,6 +67,19 @@ class AuthorizationRequestServiceTests {
     UUID providerId = UUID.randomUUID();
     Instant submittedAt = Instant.parse("2019-06-01T00:00:00Z");
     Clock clock = Clock.fixed(Instant.parse("2026-10-05T12:00:00Z"), ZoneOffset.UTC);
+
+    @Test
+    void stopsProcessingWhenRequestLockFails() {
+        UUID requestId = UUID.randomUUID();
+        CannotAcquireLockException failure = new CannotAcquireLockException("Request is locked");
+        when(authorizationRequestRepository.findByIdForUpdate(requestId)).thenThrow(failure);
+
+        assertSame(failure, assertThrows(CannotAcquireLockException.class, () ->
+                authorizationRequestService.processSubmittedRequest(requestId)
+        ));
+        verifyNoInteractions(coverageRepository, planRepository, networkParticipationRepository, reviewRepository);
+        verify(authorizationRequestRepository, never()).save(any());
+    }
 
     @BeforeEach
     void createService() {
@@ -170,6 +184,10 @@ class AuthorizationRequestServiceTests {
 
         authorizationRequestService.processSubmittedRequest(request.getId());
 
+        var calls = inOrder(authorizationRequestRepository, coverageRepository);
+        calls.verify(authorizationRequestRepository).findByIdForUpdate(request.getId());
+        calls.verify(coverageRepository).findByPatientIdAndPlanId(request.getPatientId(), request.getPlanId());
+        calls.verify(authorizationRequestRepository).save(request);
         assertSavedStatus(request, RequestStatus.REJECTED, RequestStatusReason.NOT_COVERED);
         verifyNoInteractions(planRepository, networkParticipationRepository);
         assertNoReview();
@@ -346,7 +364,7 @@ class AuthorizationRequestServiceTests {
 
     AuthorizationRequest givenSubmittedRequest(String code) {
         AuthorizationRequest request = request(code).toDomain();
-        when(authorizationRequestRepository.findById(request.getId())).thenReturn(Optional.of(request));
+        when(authorizationRequestRepository.findByIdForUpdate(request.getId())).thenReturn(Optional.of(request));
         return request;
     }
 

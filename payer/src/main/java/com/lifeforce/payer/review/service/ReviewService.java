@@ -36,6 +36,10 @@ public class ReviewService {
 
     @Transactional
     public void evaluateReview(UUID reviewId) {
+        Optional<AuthorizationRequest> request = authorizationRequestRepository.findByReviewIdForUpdate(reviewId);
+        if (request.isEmpty()) {
+            return;
+        }
         Optional<Review> review = reviewRepository.findById(reviewId);
         if (review.isEmpty()) {
             return;
@@ -45,7 +49,7 @@ public class ReviewService {
             return;
         }
 
-        AuthorizationRequest authorizationRequest = currentReview.getAuthorizationRequest();
+        AuthorizationRequest authorizationRequest = request.get();
         RequestedService requestedService = authorizationRequest.getRequestedService();
         Optional<PlanService> planService = planServiceRepository.findByPlanIdAndCodeAndCodeType(authorizationRequest.getPlanId(), requestedService.code(), CodeType.PROCEDURE);
         if (planService.isEmpty()) {

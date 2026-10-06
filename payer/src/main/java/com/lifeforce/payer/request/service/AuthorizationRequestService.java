@@ -85,7 +85,7 @@ public class AuthorizationRequestService {
 
     @Transactional
     public void processSubmittedRequest(UUID requestId) {
-        Optional<AuthorizationRequest> authorizationRequest = authorizationRequestRepository.findById(requestId);
+        Optional<AuthorizationRequest> authorizationRequest = authorizationRequestRepository.findByIdForUpdate(requestId);
         if(authorizationRequest.isEmpty()) {
             return;
         }

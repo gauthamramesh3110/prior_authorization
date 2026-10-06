@@ -24,6 +24,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -48,6 +49,19 @@ class ReviewDecisionServiceTests {
     UUID reviewerId = UUID.randomUUID();
     Instant submittedAt = Instant.parse("2019-06-01T00:00:00Z");
     Clock clock = Clock.fixed(Instant.parse("2026-10-05T12:00:00Z"), ZoneOffset.UTC);
+
+    @Test
+    void stopsManualDecisionWhenRequestLockFails() {
+        UUID reviewId = UUID.randomUUID();
+        CannotAcquireLockException failure = new CannotAcquireLockException("Request is locked");
+        when(authorizationRequestRepository.findByReviewIdForUpdate(reviewId)).thenThrow(failure);
+
+        assertSame(failure, assertThrows(CannotAcquireLockException.class, () ->
+                reviewDecisionService.submitManualDecision(reviewId, decision(Decision.APPROVED, 5))
+        ));
+        verifyNoInteractions(reviewRepository);
+        verify(authorizationRequestRepository, never()).save(any());
+    }
 
     @BeforeEach
     void createService() {
@@ -107,7 +121,7 @@ class ReviewDecisionServiceTests {
 
         assertEquals(HttpStatus.NOT_FOUND, failure.getStatusCode());
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(authorizationRequestRepository);
+        verify(authorizationRequestRepository, never()).save(any());
     }
 
     @ParameterizedTest
@@ -226,6 +240,7 @@ class ReviewDecisionServiceTests {
         request.updateStatusToCriteriaNotMet();
         Review review = Review.createNewManualReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
         ReflectionTestUtils.setField(review, "authorizationRequest", request);
+        when(authorizationRequestRepository.findByReviewIdForUpdate(review.getId())).thenReturn(Optional.of(request));
         when(reviewRepository.findById(review.getId())).thenReturn(Optional.of(review));
         return review;
     }
@@ -245,7 +260,7 @@ class ReviewDecisionServiceTests {
 
     void assertNoWrites() {
         verify(reviewRepository, never()).save(any());
-        verifyNoInteractions(authorizationRequestRepository);
+        verify(authorizationRequestRepository, never()).save(any());
     }
 
     void assertResponseMatchesReview(ManualDecisionResponse response, Review review) {
@@ -265,6 +280,11 @@ class ReviewDecisionServiceTests {
     }
 
     void assertSavedRequestAndReview(Review review) {
+        var calls = inOrder(authorizationRequestRepository, reviewRepository);
+        calls.verify(authorizationRequestRepository).findByReviewIdForUpdate(review.getId());
+        calls.verify(reviewRepository).findById(review.getId());
+        calls.verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
+        calls.verify(reviewRepository).save(review);
         verify(authorizationRequestRepository).save(review.getAuthorizationRequest());
         verify(reviewRepository).save(review);
     }

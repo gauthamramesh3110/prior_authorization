@@ -23,6 +23,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
+import org.springframework.dao.CannotAcquireLockException;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -48,6 +49,19 @@ class EvidenceSubmissionServiceTests {
     Instant submittedAt = Instant.parse("2019-06-01T00:00:00Z");
     Clock clock = Clock.fixed(Instant.parse("2026-10-05T12:00:00Z"), ZoneOffset.UTC);
 
+    @Test
+    void stopsEvidenceSubmissionWhenRequestLockFails() {
+        UUID requestId = UUID.randomUUID();
+        CannotAcquireLockException failure = new CannotAcquireLockException("Request is locked");
+        when(authorizationRequestRepository.findByIdForUpdate(requestId)).thenThrow(failure);
+
+        assertSame(failure, assertThrows(CannotAcquireLockException.class, () ->
+                evidenceSubmissionService.submitEvidence(requestId, new EvidenceSubmission(providerId, additionalEvidence()))
+        ));
+        verifyNoInteractions(reviewRepository);
+        verify(authorizationRequestRepository, never()).save(any());
+    }
+
     @BeforeEach
     void createService() {
         evidenceSubmissionService = new EvidenceSubmissionService(authorizationRequestRepository, reviewRepository, clock);
@@ -66,6 +80,11 @@ class EvidenceSubmissionServiceTests {
 
         EvidenceSubmissionResponse response = evidenceSubmissionService.submitEvidence(request.getId(), new EvidenceSubmission(providerId, additions));
 
+        var calls = inOrder(authorizationRequestRepository, reviewRepository);
+        calls.verify(authorizationRequestRepository).findByIdForUpdate(request.getId());
+        calls.verify(reviewRepository).findByRequestId(request.getId());
+        calls.verify(authorizationRequestRepository).save(request);
+        calls.verify(reviewRepository).save(review);
         assertEquals("Original evidence\n\nNew test results", request.getClinicalJustification().summary());
         assertEquals(List.of(originalEvidence.conditions().getFirst(), additions.conditions().getFirst().toDomain()), request.getClinicalJustification().conditions());
         assertEquals(List.of(originalEvidence.observations().getFirst(), additions.observations().getFirst().toDomain()), request.getClinicalJustification().observations());
@@ -166,7 +185,7 @@ class EvidenceSubmissionServiceTests {
     @Test
     void refusesEvidenceFromAnotherProviderBeforeFetchingReview() {
         AuthorizationRequest request = createRequest();
-        when(authorizationRequestRepository.findById(request.getId())).thenReturn(Optional.of(request));
+        when(authorizationRequestRepository.findByIdForUpdate(request.getId())).thenReturn(Optional.of(request));
 
         ResponseStatusException failure = assertThrows(ResponseStatusException.class, () ->
                 evidenceSubmissionService.submitEvidence(request.getId(), new EvidenceSubmission(UUID.randomUUID(), additionalEvidence()))
@@ -181,7 +200,7 @@ class EvidenceSubmissionServiceTests {
     @Test
     void refusesRequestWithoutReview() {
         AuthorizationRequest request = createRequest();
-        when(authorizationRequestRepository.findById(request.getId())).thenReturn(Optional.of(request));
+        when(authorizationRequestRepository.findByIdForUpdate(request.getId())).thenReturn(Optional.of(request));
 
         ResponseStatusException failure = assertThrows(ResponseStatusException.class, () ->
                 evidenceSubmissionService.submitEvidence(request.getId(), new EvidenceSubmission(providerId, additionalEvidence()))
@@ -308,7 +327,7 @@ class EvidenceSubmissionServiceTests {
         Review review = Review.createNewEvaluationReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
         review.updateStatusToAwaitingEvidence(Clock.fixed(submittedAt, ZoneOffset.UTC));
         ReflectionTestUtils.setField(review, "authorizationRequest", request);
-        when(authorizationRequestRepository.findById(request.getId())).thenReturn(Optional.of(request));
+        when(authorizationRequestRepository.findByIdForUpdate(request.getId())).thenReturn(Optional.of(request));
         when(reviewRepository.findByRequestId(request.getId())).thenReturn(Optional.of(review));
         return review;
     }
