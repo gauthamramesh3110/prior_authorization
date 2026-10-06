@@ -2,7 +2,6 @@ package com.lifeforce.payer.review.service;
 
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import com.lifeforce.payer.request.domain.RequestStatus;
-import com.lifeforce.payer.request.domain.RequestStatusReason;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.review.domain.Decision;
 import com.lifeforce.payer.review.domain.Review;
@@ -49,12 +48,12 @@ public class ReviewDecisionService {
             if (quantity == null || quantity <= 0 || quantity > request.getRequestedService().quantity()) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Approved quantity must be positive and no greater than the requested quantity");
             }
-            request.updateStatus(RequestStatus.APPROVED, RequestStatusReason.MANUAL_APPROVED);
+            request.updateStatusToManuallyApproved();
         } else {
             if (decisionRequest.approvedQuantity() != null) {
                 throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rejected reviews must not have an approved quantity");
             }
-            request.updateStatus(RequestStatus.REJECTED, RequestStatusReason.MANUAL_REJECTED);
+            request.updateStatusToManuallyRejected();
         }
 
         review.updateStatusToManuallyDecided(decisionRequest.decision(), decisionRequest.decisionReason(), decisionRequest.reviewerId(), decisionRequest.approvedQuantity(), clock);

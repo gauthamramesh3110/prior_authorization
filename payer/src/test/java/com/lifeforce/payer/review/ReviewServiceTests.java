@@ -172,7 +172,7 @@ class ReviewServiceTests {
                 new RequestedService("PA", null, null, Date.from(submittedAt), 5),
                 new ClinicalJustification(null, List.of(), List.of())
         ));
-        request.updateStatus(RequestStatus.PENDING, RequestStatusReason.PENDING_EVALUATION);
+        request.updateStatusToPendingEvaluation();
         Review review = Review.createNewReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
         ReflectionTestUtils.setField(review, "authorizationRequest", request);
         when(reviewRepository.findById(review.getId())).thenReturn(Optional.of(review));

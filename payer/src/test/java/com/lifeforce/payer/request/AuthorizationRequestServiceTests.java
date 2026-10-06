@@ -149,7 +149,12 @@ class AuthorizationRequestServiceTests {
     @EnumSource(value = RequestStatus.class, mode = EnumSource.Mode.EXCLUDE, names = "SUBMITTED")
     void ignoresRequestsThatAreAlreadyProcessed(RequestStatus status) {
         AuthorizationRequest request = givenSubmittedRequest("PA");
-        request.updateStatus(status, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
+        switch (status) {
+            case PENDING -> request.updateStatusToManualReview();
+            case APPROVED -> request.updateStatusToAutoApproved();
+            case REJECTED -> request.updateStatusToNotCovered();
+            default -> throw new IllegalArgumentException("Expected a processed request status");
+        }
 
         authorizationRequestService.processSubmittedRequest(request.getId());
 

@@ -6,8 +6,6 @@ import com.lifeforce.payer.plan.service.PolicyEvaluationResult;
 import com.lifeforce.payer.plan.repository.PlanServiceRepository;
 import com.lifeforce.payer.plan.service.PlanEvalService;
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
-import com.lifeforce.payer.request.domain.RequestStatus;
-import com.lifeforce.payer.request.domain.RequestStatusReason;
 import com.lifeforce.payer.request.dto.RequestedService;
 import com.lifeforce.payer.review.domain.Review;
 import com.lifeforce.payer.review.domain.ReviewHistory;
@@ -52,7 +50,7 @@ public class ReviewService {
         RequestedService requestedService = authorizationRequest.getRequestedService();
         Optional<PlanService> planService = planServiceRepository.findByPlanIdAndCodeAndCodeType(authorizationRequest.getPlanId(), requestedService.code(), CodeType.PROCEDURE);
         if (planService.isEmpty()) {
-            authorizationRequest.updateStatus(RequestStatus.PENDING, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
+            authorizationRequest.updateStatusToManualReview();
             currentReview.updateStatusToManualReview(clock);
             saveReview(currentReview);
             return;
@@ -60,20 +58,23 @@ public class ReviewService {
 
         PolicyEvaluationResult result = planEvalService.evalPolicyForEvidence(planService.get().getPolicy(), authorizationRequest.getClinicalJustification(), authorizationRequest.getSubmittedAt());
         if (result == PolicyEvaluationResult.MATCHED) {
-            authorizationRequest.updateStatus(RequestStatus.APPROVED, RequestStatusReason.AUTO_APPROVED);
+            authorizationRequest.updateStatusToAutoApproved();
             currentReview.updateStatusToAutoApproved(requestedService.quantity(), clock);
             saveReview(currentReview);
             return;
         }
         if (result == PolicyEvaluationResult.AWAITING_EVIDENCE) {
-            authorizationRequest.updateStatus(RequestStatus.PENDING, RequestStatusReason.AWAITING_EVIDENCE);
+            authorizationRequest.updateStatusToAwaitingEvidence();
             currentReview.updateStatusToAwaitingEvidence(clock);
             saveReview(currentReview);
             return;
         }
 
-        RequestStatusReason reason = result == PolicyEvaluationResult.CRITERIA_NOT_MET ? RequestStatusReason.CRITERIA_NOT_MET : RequestStatusReason.MANUAL_REVIEW_REQUIRED;
-        authorizationRequest.updateStatus(RequestStatus.PENDING, reason);
+        if (result == PolicyEvaluationResult.CRITERIA_NOT_MET) {
+            authorizationRequest.updateStatusToCriteriaNotMet();
+        } else {
+            authorizationRequest.updateStatusToManualReview();
+        }
         currentReview.updateStatusToManualReview(clock);
         saveReview(currentReview);
     }

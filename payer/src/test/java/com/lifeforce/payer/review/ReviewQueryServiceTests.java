@@ -182,7 +182,7 @@ class ReviewQueryServiceTests {
     void returnsDecisionFieldsForCompletedReview() {
         Review review = givenReview();
         review.updateStatusToAutoApproved(5, clock);
-        review.getAuthorizationRequest().updateStatus(RequestStatus.APPROVED, RequestStatusReason.AUTO_APPROVED);
+        review.getAuthorizationRequest().updateStatusToAutoApproved();
         UUID reviewerId = UUID.randomUUID();
         ReflectionTestUtils.setField(review, "reviewerId", reviewerId);
 
@@ -214,7 +214,7 @@ class ReviewQueryServiceTests {
                 UUID.randomUUID(), submittedAt, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 new RequestedService("PA", "PROCEDURE", "Test service", Date.from(submittedAt), 5), evidence
         ));
-        request.updateStatus(RequestStatus.PENDING, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
+        request.updateStatusToManualReview();
         Review review = Review.createNewManualReview(request.getId(), clock);
         ReflectionTestUtils.setField(review, "authorizationRequest", request);
         return review;

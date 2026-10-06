@@ -120,7 +120,7 @@ public class AuthorizationRequestService {
         // CHECK PATIENT'S COVERAGE
         List<Coverage> coverages = coverageRepository.findByPatientIdAndPlanId(request.getPatientId(), request.getPlanId());
         if (coverages.isEmpty()) {
-            request.updateStatus(RequestStatus.REJECTED, RequestStatusReason.NOT_COVERED);
+            request.updateStatusToNotCovered();
             authorizationRequestRepository.save(request);
             return;
         }
@@ -136,7 +136,7 @@ public class AuthorizationRequestService {
         ).findFirst().orElse(null);
 
         if (currentCoverage == null) {
-            request.updateStatus(RequestStatus.REJECTED, RequestStatusReason.COVERAGE_INACTIVE);
+            request.updateStatusToCoverageInactive();
             authorizationRequestRepository.save(request);
             return;
         }
@@ -146,7 +146,7 @@ public class AuthorizationRequestService {
         if (plan.isEmpty()) {
             // CREATE MANUAL REVIEW FOR UNCONFIGURED PLAN
             Review review = Review.createNewManualReview(request.getId(), clock);
-            request.updateStatus(RequestStatus.PENDING, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
+            request.updateStatusToManualReview();
             authorizationRequestRepository.save(request);
             saveNewReview(review, request);
             return;
@@ -164,7 +164,7 @@ public class AuthorizationRequestService {
                 )
         );
         if (!isInNetwork) {
-            request.updateStatus(RequestStatus.REJECTED, RequestStatusReason.OUT_OF_NETWORK);
+            request.updateStatusToOutOfNetwork();
             authorizationRequestRepository.save(request);
             return;
         }
@@ -175,7 +175,7 @@ public class AuthorizationRequestService {
         ).toList();
         if (matchingServices.isEmpty()) {
             Review review = Review.createNewManualReview(request.getId(), clock);
-            request.updateStatus(RequestStatus.PENDING, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
+            request.updateStatusToManualReview();
             authorizationRequestRepository.save(request);
             saveNewReview(review, request);
             return;
@@ -183,7 +183,7 @@ public class AuthorizationRequestService {
 
         Optional<PlanService> matchingService = matchingServices.stream().filter(planService -> planService.getBenefitStatus().equals(BenefitStatus.COVERED)).findFirst();
         if (matchingService.isEmpty()) {
-            request.updateStatus(RequestStatus.REJECTED, RequestStatusReason.SERVICE_EXCLUDED);
+            request.updateStatusToServiceExcluded();
             authorizationRequestRepository.save(request);
             return;
         }
@@ -191,14 +191,14 @@ public class AuthorizationRequestService {
         // CHECK IF PRIOR AUTH IS REQUIRED
         PlanService currentService = matchingService.get();
         if (!currentService.getPriorAuthorizationRequired()) {
-            request.updateStatus(RequestStatus.APPROVED, RequestStatusReason.PRIOR_AUTH_NOT_REQUIRED);
+            request.updateStatusToPriorAuthNotRequired();
             authorizationRequestRepository.save(request);
             return;
         }
 
         // CREATE A REVIEW FOR PRIOR AUTH REQUIRED CRITERIA
         Review review = Review.createNewReview(request.getId(), clock);
-        request.updateStatus(RequestStatus.PENDING, RequestStatusReason.PENDING_EVALUATION);
+        request.updateStatusToPendingEvaluation();
         authorizationRequestRepository.save(request);
         saveNewReview(review, request);
     }

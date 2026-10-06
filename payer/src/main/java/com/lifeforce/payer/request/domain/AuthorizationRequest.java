@@ -55,17 +55,75 @@ public class AuthorizationRequest {
         this.providerId = httpAuthorizationRequest.providerId();
         this.organizationId = httpAuthorizationRequest.organizationId();
         this.planId = httpAuthorizationRequest.planId();
-        this.requestStatus = RequestStatus.SUBMITTED;
-        this.requestStatusReason = null;
+        updateStatusToSubmitted();
         this.requestedService = httpAuthorizationRequest.requestedService();
         this.clinicalJustification = httpAuthorizationRequest.clinicalJustification();
         this.submittedAt = httpAuthorizationRequest.submittedAt();
         return this;
     }
 
-    public AuthorizationRequest updateStatus(RequestStatus newRequestStatus, RequestStatusReason newRequestStatusReason) {
-        this.requestStatus = newRequestStatus;
-        this.requestStatusReason = newRequestStatusReason;
-        return this;
+    public void updateStatusToSubmitted() {
+        this.requestStatus = RequestStatus.SUBMITTED;
+        this.requestStatusReason = null;
+    }
+
+    public void updateStatusToPendingEvaluation() {
+        this.requestStatus = RequestStatus.PENDING;
+        this.requestStatusReason = RequestStatusReason.PENDING_EVALUATION;
+    }
+
+    public void updateStatusToManualReview() {
+        this.requestStatus = RequestStatus.PENDING;
+        this.requestStatusReason = RequestStatusReason.MANUAL_REVIEW_REQUIRED;
+    }
+
+    public void updateStatusToAwaitingEvidence() {
+        this.requestStatus = RequestStatus.PENDING;
+        this.requestStatusReason = RequestStatusReason.AWAITING_EVIDENCE;
+    }
+
+    public void updateStatusToCriteriaNotMet() {
+        this.requestStatus = RequestStatus.PENDING;
+        this.requestStatusReason = RequestStatusReason.CRITERIA_NOT_MET;
+    }
+
+    public void updateStatusToAutoApproved() {
+        this.requestStatus = RequestStatus.APPROVED;
+        this.requestStatusReason = RequestStatusReason.AUTO_APPROVED;
+    }
+
+    public void updateStatusToManuallyApproved() {
+        this.requestStatus = RequestStatus.APPROVED;
+        this.requestStatusReason = RequestStatusReason.MANUAL_APPROVED;
+    }
+
+    public void updateStatusToPriorAuthNotRequired() {
+        this.requestStatus = RequestStatus.APPROVED;
+        this.requestStatusReason = RequestStatusReason.PRIOR_AUTH_NOT_REQUIRED;
+    }
+
+    public void updateStatusToNotCovered() {
+        this.requestStatus = RequestStatus.REJECTED;
+        this.requestStatusReason = RequestStatusReason.NOT_COVERED;
+    }
+
+    public void updateStatusToCoverageInactive() {
+        this.requestStatus = RequestStatus.REJECTED;
+        this.requestStatusReason = RequestStatusReason.COVERAGE_INACTIVE;
+    }
+
+    public void updateStatusToOutOfNetwork() {
+        this.requestStatus = RequestStatus.REJECTED;
+        this.requestStatusReason = RequestStatusReason.OUT_OF_NETWORK;
+    }
+
+    public void updateStatusToServiceExcluded() {
+        this.requestStatus = RequestStatus.REJECTED;
+        this.requestStatusReason = RequestStatusReason.SERVICE_EXCLUDED;
+    }
+
+    public void updateStatusToManuallyRejected() {
+        this.requestStatus = RequestStatus.REJECTED;
+        this.requestStatusReason = RequestStatusReason.MANUAL_REJECTED;
     }
 }

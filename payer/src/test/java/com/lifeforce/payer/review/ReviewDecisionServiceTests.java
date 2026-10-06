@@ -135,7 +135,12 @@ class ReviewDecisionServiceTests {
     @EnumSource(value = RequestStatus.class, mode = EnumSource.Mode.EXCLUDE, names = "PENDING")
     void refusesRequestThatIsNoLongerPending(RequestStatus status) {
         Review review = givenManualReview();
-        review.getAuthorizationRequest().updateStatus(status, RequestStatusReason.MANUAL_REVIEW_REQUIRED);
+        switch (status) {
+            case SUBMITTED -> review.getAuthorizationRequest().updateStatusToSubmitted();
+            case APPROVED -> review.getAuthorizationRequest().updateStatusToManuallyApproved();
+            case REJECTED -> review.getAuthorizationRequest().updateStatusToManuallyRejected();
+            default -> throw new IllegalArgumentException("Expected a non-pending request status");
+        }
 
         ResponseStatusException failure = assertThrows(ResponseStatusException.class, () ->
                 reviewDecisionService.submitManualDecision(review.getId(), decision(Decision.REJECTED, null))
@@ -237,7 +242,7 @@ class ReviewDecisionServiceTests {
                 new RequestedService("PA", null, null, Date.from(submittedAt), 5),
                 new ClinicalJustification(null, List.of(), List.of())
         ));
-        request.updateStatus(RequestStatus.PENDING, RequestStatusReason.CRITERIA_NOT_MET);
+        request.updateStatusToCriteriaNotMet();
         Review review = Review.createNewManualReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
         ReflectionTestUtils.setField(review, "authorizationRequest", request);
         when(reviewRepository.findById(review.getId())).thenReturn(Optional.of(review));
