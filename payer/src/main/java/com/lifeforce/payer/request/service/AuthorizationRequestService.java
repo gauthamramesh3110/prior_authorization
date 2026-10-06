@@ -11,7 +11,6 @@ import com.lifeforce.payer.reference.repository.ProviderRepository;
 import com.lifeforce.payer.request.domain.*;
 import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
 import com.lifeforce.payer.request.dto.HttpAuthorizationResponse;
-import com.lifeforce.payer.request.dto.RequestedService;
 import com.lifeforce.payer.request.dto.ResponseStatus;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.request.repository.CoverageRepository;
@@ -96,7 +95,7 @@ public class AuthorizationRequestService {
             );
         }
 
-        AuthorizationRequest authorizationRequest = new AuthorizationRequest().build(request);
+        AuthorizationRequest authorizationRequest = request.toDomain();
         authorizationRequestRepository.save(authorizationRequest);
 
         return new HttpAuthorizationResponse(

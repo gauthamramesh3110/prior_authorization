@@ -61,7 +61,7 @@ public record ReviewDetails(
             return new RequestDetails(
                     request.getId(), request.getPatientId(), request.getProviderId(), request.getOrganizationId(),
                     request.getPlanId(), request.getRequestStatus(), request.getRequestStatusReason(),
-                    request.getRequestedService(), request.getClinicalJustification(), request.getSubmittedAt()
+                    RequestedService.from(request.getRequestedService()), ClinicalJustification.from(request.getClinicalJustification()), request.getSubmittedAt()
             );
         }
     }

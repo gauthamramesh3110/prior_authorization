@@ -90,8 +90,8 @@ class AuthorizationRequestServiceTests {
         assertEquals(ResponseStatus.SUBMITTED, response.responseStatus());
         assertEquals(request.requestId(), savedRequest.getValue().getId());
         assertEquals(RequestStatus.SUBMITTED, savedRequest.getValue().getRequestStatus());
-        assertEquals(request.requestedService(), savedRequest.getValue().getRequestedService());
-        assertEquals(request.clinicalJustification(), savedRequest.getValue().getClinicalJustification());
+        assertEquals(request.requestedService().toDomain(), savedRequest.getValue().getRequestedService());
+        assertEquals(request.clinicalJustification().toDomain(), savedRequest.getValue().getClinicalJustification());
         verifyNoInteractions(reviewRepository, reviewHistoryRepository);
     }
 
@@ -342,7 +342,7 @@ class AuthorizationRequestServiceTests {
     }
 
     AuthorizationRequest givenSubmittedRequest(String code) {
-        AuthorizationRequest request = new AuthorizationRequest().build(request(code));
+        AuthorizationRequest request = request(code).toDomain();
         when(authorizationRequestRepository.findById(request.getId())).thenReturn(Optional.of(request));
         return request;
     }

@@ -19,4 +19,7 @@ public interface ReviewRepository extends Repository<Review, UUID> {
 
     @EntityGraph(attributePaths = "authorizationRequest")
     Optional<Review> findById(UUID id);
+
+    @EntityGraph(attributePaths = "authorizationRequest")
+    Optional<Review> findByRequestId(UUID requestId);
 }

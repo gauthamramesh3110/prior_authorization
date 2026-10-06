@@ -29,7 +29,7 @@ public record ReviewSummary(
         return new ReviewSummary(
                 review.getId(), request.getId(), review.getReviewStatus(), request.getRequestStatus(),
                 request.getRequestStatusReason(), request.getPatientId(), request.getProviderId(),
-                request.getOrganizationId(), request.getPlanId(), request.getRequestedService(),
+                request.getOrganizationId(), request.getPlanId(), RequestedService.from(request.getRequestedService()),
                 request.getSubmittedAt(), review.getLastUpdated()
         );
     }

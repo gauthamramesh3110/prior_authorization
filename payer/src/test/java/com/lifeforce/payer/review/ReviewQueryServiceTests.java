@@ -12,9 +12,8 @@ import com.lifeforce.payer.plan.repository.PlanServiceRepository;
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.domain.RequestStatusReason;
-import com.lifeforce.payer.request.dto.ClinicalJustification;
-import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
-import com.lifeforce.payer.request.dto.RequestedService;
+import com.lifeforce.payer.request.domain.ClinicalJustification;
+import com.lifeforce.payer.request.domain.RequestedService;
 import com.lifeforce.payer.review.domain.Decision;
 import com.lifeforce.payer.review.domain.DecisionActor;
 import com.lifeforce.payer.review.domain.Review;
@@ -88,7 +87,7 @@ class ReviewQueryServiceTests {
         assertEquals(request.getProviderId(), firstSummary.providerId());
         assertEquals(request.getOrganizationId(), firstSummary.organizationId());
         assertEquals(request.getPlanId(), firstSummary.planId());
-        assertEquals(request.getRequestedService(), firstSummary.requestedService());
+        assertEquals(request.getRequestedService(), firstSummary.requestedService().toDomain());
         assertEquals(submittedAt, firstSummary.submittedAt());
         assertEquals(clock.instant(), firstSummary.lastUpdated());
         verifyNoInteractions(planServiceRepository);
@@ -130,8 +129,8 @@ class ReviewQueryServiceTests {
         assertEquals(request.getPlanId(), details.request().planId());
         assertEquals(request.getRequestStatus(), details.request().requestStatus());
         assertEquals(request.getRequestStatusReason(), details.request().requestStatusReason());
-        assertEquals(request.getRequestedService(), details.request().requestedService());
-        assertEquals(request.getClinicalJustification(), details.request().clinicalJustification());
+        assertEquals(request.getRequestedService(), details.request().requestedService().toDomain());
+        assertEquals(request.getClinicalJustification(), details.request().clinicalJustification().toDomain());
         assertEquals(submittedAt, details.request().submittedAt());
         assertNull(details.decision());
         assertEquals(policy.getId(), details.policy().id());
@@ -210,10 +209,10 @@ class ReviewQueryServiceTests {
         ClinicalJustification evidence = new ClinicalJustification("Clinical summary", List.of(), List.of(
                 new ClinicalJustification.ObservationEvidence("EF", new BigDecimal("35.1"), "%", null, submittedAt)
         ));
-        AuthorizationRequest request = new AuthorizationRequest().build(new HttpAuthorizationRequest(
+        AuthorizationRequest request = new AuthorizationRequest().build(
                 UUID.randomUUID(), submittedAt, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 new RequestedService("PA", "PROCEDURE", "Test service", Date.from(submittedAt), 5), evidence
-        ));
+        );
         request.updateStatusToManualReview();
         Review review = Review.createNewManualReview(request.getId(), clock);
         ReflectionTestUtils.setField(review, "authorizationRequest", request);

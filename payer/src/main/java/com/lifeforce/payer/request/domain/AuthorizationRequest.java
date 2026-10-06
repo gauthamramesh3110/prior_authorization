@@ -1,14 +1,14 @@
 package com.lifeforce.payer.request.domain;
 
-import com.lifeforce.payer.request.dto.ClinicalJustification;
-import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
-import com.lifeforce.payer.request.dto.RequestedService;
 import jakarta.persistence.*;
 import lombok.Getter;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.Clock;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -49,16 +49,54 @@ public class AuthorizationRequest {
     @Column(name = "submitted_at")
     Instant submittedAt;
 
-    public AuthorizationRequest build(HttpAuthorizationRequest httpAuthorizationRequest) {
-        this.id = httpAuthorizationRequest.requestId();
-        this.patientId = httpAuthorizationRequest.patientId();
-        this.providerId = httpAuthorizationRequest.providerId();
-        this.organizationId = httpAuthorizationRequest.organizationId();
-        this.planId = httpAuthorizationRequest.planId();
+    @Column(name = "evidence_updated_at")
+    Instant evidenceUpdatedAt;
+
+    public Instant getEvidenceEvaluationAt() {
+        return evidenceUpdatedAt == null ? submittedAt : evidenceUpdatedAt;
+    }
+
+    public void addEvidence(ClinicalJustification evidence, Clock clock) {
+        ClinicalJustification currentEvidence = clinicalJustification == null
+                ? new ClinicalJustification(null, null, null) : clinicalJustification;
+        String summary = currentEvidence.summary();
+        if (evidence.summary() != null && !evidence.summary().isBlank()) {
+            summary = summary == null || summary.isBlank() ? evidence.summary() : summary + "\n\n" + evidence.summary();
+        }
+        List<ClinicalJustification.ConditionEvidence> conditions = new ArrayList<>();
+        if (currentEvidence.conditions() != null) {
+            conditions.addAll(currentEvidence.conditions());
+        }
+        if (evidence.conditions() != null) {
+            conditions.addAll(evidence.conditions());
+        }
+        List<ClinicalJustification.ObservationEvidence> observations = new ArrayList<>();
+        if (currentEvidence.observations() != null) {
+            observations.addAll(currentEvidence.observations());
+        }
+        if (evidence.observations() != null) {
+            observations.addAll(evidence.observations());
+        }
+        this.clinicalJustification = new ClinicalJustification(summary, List.copyOf(conditions), List.copyOf(observations));
+        this.evidenceUpdatedAt = Instant.now(clock);
+        updateStatusToEvidenceUpdated();
+    }
+
+    public void updateStatusToEvidenceUpdated() {
+        this.requestStatus = RequestStatus.PENDING;
+        this.requestStatusReason = RequestStatusReason.EVIDENCE_UPDATED;
+    }
+
+    public AuthorizationRequest build(UUID requestId, Instant submittedAt, UUID patientId, UUID providerId, UUID organizationId, UUID planId, RequestedService requestedService, ClinicalJustification clinicalJustification) {
+        this.id = requestId;
+        this.patientId = patientId;
+        this.providerId = providerId;
+        this.organizationId = organizationId;
+        this.planId = planId;
         updateStatusToSubmitted();
-        this.requestedService = httpAuthorizationRequest.requestedService();
-        this.clinicalJustification = httpAuthorizationRequest.clinicalJustification();
-        this.submittedAt = httpAuthorizationRequest.submittedAt();
+        this.requestedService = requestedService;
+        this.clinicalJustification = clinicalJustification;
+        this.submittedAt = submittedAt;
         return this;
     }
 

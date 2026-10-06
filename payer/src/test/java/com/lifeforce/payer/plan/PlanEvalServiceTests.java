@@ -3,7 +3,7 @@ package com.lifeforce.payer.plan;
 import com.lifeforce.payer.plan.domain.policy.*;
 import com.lifeforce.payer.plan.service.PlanEvalService;
 import com.lifeforce.payer.plan.service.PolicyEvaluationResult;
-import com.lifeforce.payer.request.dto.ClinicalJustification;
+import com.lifeforce.payer.request.domain.ClinicalJustification;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;

@@ -70,6 +70,11 @@ public class Review {
         return review;
     }
 
+    public void updateStatusToPendingEvaluation(Clock clock) {
+        this.reviewStatus = ReviewStatus.PENDING_EVALUATION;
+        this.lastUpdated = Instant.now(clock);
+    }
+
     public void updateStatusToManualReview(Clock clock) {
         this.reviewStatus = ReviewStatus.PENDING_MANUAL_REVIEW;
         this.lastUpdated = Instant.now(clock);

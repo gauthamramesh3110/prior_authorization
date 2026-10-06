@@ -1,6 +1,7 @@
 package com.lifeforce.payer.review.domain;
 
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
+import com.lifeforce.payer.request.domain.ClinicalJustification;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import lombok.Getter;
@@ -49,6 +50,18 @@ public class ReviewHistory {
         history.eventType = "EVIDENCE_REQUESTED";
         history.eventPayload.put("message", message);
         history.eventPayload.put("requestedEvidence", List.copyOf(requestedEvidence));
+        return history;
+    }
+
+    public static ReviewHistory createEvidenceSubmittedEvent(Review review, UUID providerId, ClinicalJustification evidence) {
+        ReviewHistory history = createEvent(review, review.getAuthorizationRequest(), "PROVIDER");
+        history.eventType = "UPDATED_EVIDENCE";
+        history.eventPayload.put("providerId", providerId);
+        history.eventPayload.put("clinicalJustification", new ClinicalJustification(
+                evidence.summary(),
+                evidence.conditions() == null ? null : List.copyOf(evidence.conditions()),
+                evidence.observations() == null ? null : List.copyOf(evidence.observations())
+        ));
         return history;
     }
 

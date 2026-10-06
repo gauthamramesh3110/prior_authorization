@@ -9,9 +9,8 @@ import com.lifeforce.payer.plan.service.PolicyEvaluationResult;
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.domain.RequestStatusReason;
-import com.lifeforce.payer.request.dto.ClinicalJustification;
-import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
-import com.lifeforce.payer.request.dto.RequestedService;
+import com.lifeforce.payer.request.domain.ClinicalJustification;
+import com.lifeforce.payer.request.domain.RequestedService;
 import com.lifeforce.payer.review.domain.Decision;
 import com.lifeforce.payer.review.domain.DecisionActor;
 import com.lifeforce.payer.review.domain.Review;
@@ -156,6 +155,26 @@ class ReviewServiceTests {
     }
 
     @Test
+    void evaluatesUpdatedEvidenceAtItsSubmissionTimeInsteadOfOriginalRequestTime() {
+        Review review = givenPendingReview();
+        AuthorizationRequest request = review.getAuthorizationRequest();
+        request.addEvidence(new ClinicalJustification("New results", null, null), clock);
+        review.updateStatusToPendingEvaluation(clock);
+        Policy policy = new Policy();
+        PlanService planService = new PlanService();
+        ReflectionTestUtils.setField(planService, "policy", policy);
+        when(planServiceRepository.findByPlanIdAndCodeAndCodeType(request.getPlanId(), "PA", CodeType.PROCEDURE)).thenReturn(Optional.of(planService));
+        when(planEvalService.evalPolicyForEvidence(policy, request.getClinicalJustification(), clock.instant())).thenReturn(PolicyEvaluationResult.MATCHED);
+
+        reviewService.evaluateReview(review.getId());
+
+        verify(planEvalService).evalPolicyForEvidence(policy, request.getClinicalJustification(), clock.instant());
+        assertEquals(submittedAt, request.getSubmittedAt());
+        assertOutcome(review, ReviewStatus.DECIDED, RequestStatus.APPROVED, RequestStatusReason.AUTO_APPROVED);
+        assertSavedHistory(review);
+    }
+
+    @Test
     void doesNotWriteHistoryWhenReviewSaveFails() {
         Review review = givenPendingReview();
         givenPolicyResult(review, new Policy(), PolicyEvaluationResult.MATCHED);
@@ -167,11 +186,11 @@ class ReviewServiceTests {
     }
 
     Review givenPendingReview() {
-        AuthorizationRequest request = new AuthorizationRequest().build(new HttpAuthorizationRequest(
+        AuthorizationRequest request = new AuthorizationRequest().build(
                 UUID.randomUUID(), submittedAt, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 new RequestedService("PA", null, null, Date.from(submittedAt), 5),
                 new ClinicalJustification(null, List.of(), List.of())
-        ));
+        );
         request.updateStatusToPendingEvaluation();
         Review review = Review.createNewReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
         ReflectionTestUtils.setField(review, "authorizationRequest", request);

@@ -8,7 +8,11 @@ Manual decision service tests mock repositories and check approvals, rejections,
 
 Evidence service tests mock repositories and check requested items, reviewer history, allowed states, repeated requests, and persistence failures. Evidence controller tests use standalone MockMvc with mocked services and validate request fields.
 
+Evidence submission service tests mock repositories and check provider matching, evidence merging, history additions, manual versus automatic routing, workflow guards, and preservation of original request fields. Submission controller tests use standalone MockMvc with mocked services to check validation and response mapping. Review service tests verify that reevaluation uses the evidence update time while initial reviews retain the original submission cutoff.
+
 Review query service tests mock repositories and check queue summaries and request/policy detail mapping.
+
+DTO mapping tests check conversion into domain value objects and compatibility with existing requested-service and clinical-evidence JSON.
 
 Controller tests use standalone MockMvc with a mocked service. Scheduler tests mock both the repository and the service.
 

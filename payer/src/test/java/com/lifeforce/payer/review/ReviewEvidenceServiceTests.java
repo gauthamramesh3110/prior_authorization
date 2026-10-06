@@ -3,9 +3,8 @@ package com.lifeforce.payer.review;
 import com.lifeforce.payer.request.domain.AuthorizationRequest;
 import com.lifeforce.payer.request.domain.RequestStatus;
 import com.lifeforce.payer.request.domain.RequestStatusReason;
-import com.lifeforce.payer.request.dto.ClinicalJustification;
-import com.lifeforce.payer.request.dto.HttpAuthorizationRequest;
-import com.lifeforce.payer.request.dto.RequestedService;
+import com.lifeforce.payer.request.domain.ClinicalJustification;
+import com.lifeforce.payer.request.domain.RequestedService;
 import com.lifeforce.payer.request.repository.AuthorizationRequestRepository;
 import com.lifeforce.payer.review.domain.Review;
 import com.lifeforce.payer.review.domain.ReviewHistory;
@@ -225,11 +224,11 @@ class ReviewEvidenceServiceTests {
     }
 
     Review givenManualReview() {
-        AuthorizationRequest request = new AuthorizationRequest().build(new HttpAuthorizationRequest(
+        AuthorizationRequest request = new AuthorizationRequest().build(
                 UUID.randomUUID(), submittedAt, UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(), UUID.randomUUID(),
                 new RequestedService("PA", null, null, Date.from(submittedAt), 5),
                 new ClinicalJustification("Submitted evidence", List.of(), List.of())
-        ));
+        );
         request.updateStatusToManualReview();
         Review review = Review.createNewManualReview(request.getId(), Clock.fixed(submittedAt, ZoneOffset.UTC));
         ReflectionTestUtils.setField(review, "authorizationRequest", request);

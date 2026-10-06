@@ -100,3 +100,47 @@ The request, review, and history are saved within one transaction. The history e
 A successful call returns `200 OK` with `id` (the history event ID), `reviewId`, `requestId`, `reviewerId`, `message`, `requestedEvidence`, `requestedAt`, `reviewStatus`, `requestStatus`, and `requestStatusReason`.
 
 An unknown review returns `404 Not Found`. A completed review, a review still pending automatic evaluation, or an authorization request that is no longer pending returns `409 Conflict`. Invalid input returns `400 Bad Request`.
+
+
+## Submit evidence
+
+```http
+PATCH /api/v1/requests/{id}/evidence
+Content-Type: application/json
+```
+
+Use the authorization request ID in the path. Example:
+
+```json
+{
+  "providerId": "6f72bfe4-1839-4b22-98c3-3f995074aa63",
+  "clinicalJustification": {
+    "summary": "Updated echocardiogram results",
+    "observations": [
+      {
+        "code": "10230-1",
+        "value": 35.1,
+        "units": "%",
+        "description": "Left ventricular ejection fraction",
+        "recordedAt": "2026-10-05T10:00:00Z"
+      }
+    ]
+  }
+}
+```
+
+`providerId` and `clinicalJustification` are required. The provider must match the original request. Identity is supplied in the body, consistent with the reviewer endpoints; this is an ownership check, not authentication.
+
+Submit at least one condition, observation, or nonblank summary. Conditions and observations use the same fields and validation as the original authorization request. Omitted lists add nothing. Evidence items cannot be null.
+
+The review must be `AWAITING_EVIDENCE`, and the authorization request must be `PENDING`. New conditions and observations are appended to the existing lists. New summary text is appended with a blank line between entries. Earlier evidence, request IDs, the requested service, and original `submittedAt` are preserved.
+
+If a reviewer requested the evidence, the review returns to `PENDING_MANUAL_REVIEW` and retains its reviewer ID. Evidence awaited by the automated evaluator returns to `PENDING_EVALUATION` for the existing scheduler. The authorization request remains `PENDING` with reason `EVIDENCE_UPDATED`. Submission does not make a decision or verify that every requested item has been supplied; the next review evaluates the combined evidence.
+
+The server records `evidenceUpdatedAt`. Automatic evaluation uses that timestamp as the clinical evidence cutoff, so results collected after the original request can be considered. Initial reviews continue to use `submittedAt`. Coverage and network checks keep the original submission date. Apply Flyway migration `V4__evidence_updated_at.sql` for this new nullable column.
+
+The request, review, and history are saved in one transaction. History has source `PROVIDER`, type `UPDATED_EVIDENCE`, and contains the provider ID, resulting statuses, and `clinicalJustification` containing only this submission's additions. Earlier events are preserved.
+
+A successful call returns `200 OK` with `id` (history event ID), `requestId`, `reviewId`, `providerId`, `reviewStatus`, `requestStatus`, `requestStatusReason`, and `evidenceUpdatedAt`. Updated combined evidence is available through review details.
+
+An unknown authorization request returns `404 Not Found`. A provider mismatch returns `403 Forbidden`. A request without a review, a review outside `AWAITING_EVIDENCE`, or a request that is no longer pending returns `409 Conflict`. A repeated submission also returns `409` until the review requests evidence again. Invalid or empty evidence returns `400 Bad Request`.

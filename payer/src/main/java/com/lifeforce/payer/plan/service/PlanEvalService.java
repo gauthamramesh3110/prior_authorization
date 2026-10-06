@@ -1,7 +1,7 @@
 package com.lifeforce.payer.plan.service;
 
 import com.lifeforce.payer.plan.domain.policy.*;
-import com.lifeforce.payer.request.dto.ClinicalJustification;
+import com.lifeforce.payer.request.domain.ClinicalJustification;
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
@@ -17,14 +17,14 @@ public class PlanEvalService {
     public PlanEvalService() {
     }
 
-    public PolicyEvaluationResult evalPolicyForEvidence(Policy policy, ClinicalJustification justification, Instant submittedAt) {
+    public PolicyEvaluationResult evalPolicyForEvidence(Policy policy, ClinicalJustification justification, Instant evidenceAt) {
         if (policy == null || policy.getReviewMode() != ReviewMode.AUTO_APPROVAL_ELIGIBLE || policy.getMatch() == null || policy.getPolicyCriteria() == null || policy.getPolicyCriteria().isEmpty()) {
             return PolicyEvaluationResult.MANUAL_REVIEW_REQUIRED;
         }
 
         List<PolicyEvaluationResult> results = new ArrayList<>();
         for (PolicyCriterion criterion : policy.getPolicyCriteria()) {
-            results.add(evalCriterionForEvidence(criterion, justification, submittedAt));
+            results.add(evalCriterionForEvidence(criterion, justification, evidenceAt));
         }
 
         if (results.contains(PolicyEvaluationResult.MANUAL_REVIEW_REQUIRED)) {
@@ -43,7 +43,7 @@ public class PlanEvalService {
         return policy.getMatch().equals(Match.ALL) ? PolicyEvaluationResult.MATCHED : PolicyEvaluationResult.CRITERIA_NOT_MET;
     }
 
-    private PolicyEvaluationResult evalCriterionForEvidence(PolicyCriterion criterion, ClinicalJustification justification, Instant submittedAt) {
+    private PolicyEvaluationResult evalCriterionForEvidence(PolicyCriterion criterion, ClinicalJustification justification, Instant evidenceAt) {
         if (justification == null) {
             return PolicyEvaluationResult.AWAITING_EVIDENCE;
         }
@@ -57,8 +57,8 @@ public class PlanEvalService {
 
             boolean conditionPresent = justification.conditions().stream().anyMatch(conditionEvidence -> (
                     conditionEvidence.code().equals(criterion.getCode()) &&
-                    !conditionEvidence.startDate().after(Date.from(submittedAt)) &&
-                    (conditionEvidence.endDate() == null || conditionEvidence.endDate().after(Date.from(submittedAt)))
+                    !conditionEvidence.startDate().after(Date.from(evidenceAt)) &&
+                    (conditionEvidence.endDate() == null || conditionEvidence.endDate().after(Date.from(evidenceAt)))
             ));
             return conditionPresent ? PolicyEvaluationResult.MATCHED : PolicyEvaluationResult.AWAITING_EVIDENCE;
         }
@@ -71,7 +71,7 @@ public class PlanEvalService {
 
         List<ClinicalJustification.ObservationEvidence> observations = justification.observations().stream().filter(observationEvidence -> (
                 observationEvidence.code().equals(criterion.getCode()) &&
-                !observationEvidence.recordedAt().isAfter(submittedAt)
+                !observationEvidence.recordedAt().isAfter(evidenceAt)
         )).toList();
         Optional<ClinicalJustification.ObservationEvidence> latestObservation = observations.stream().max(Comparator.comparing(ClinicalJustification.ObservationEvidence::recordedAt));
         if (latestObservation.isEmpty()) {

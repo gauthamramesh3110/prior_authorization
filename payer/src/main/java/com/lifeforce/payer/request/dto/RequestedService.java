@@ -13,4 +13,11 @@ public record RequestedService(
         @NotNull Date requestedDate,
         @NotNull @Positive Integer quantity
 ) {
+    public com.lifeforce.payer.request.domain.RequestedService toDomain() {
+        return new com.lifeforce.payer.request.domain.RequestedService(code, codeSystem, description, requestedDate, quantity);
+    }
+
+    public static RequestedService from(com.lifeforce.payer.request.domain.RequestedService requestedService) {
+        return new RequestedService(requestedService.code(), requestedService.codeSystem(), requestedService.description(), requestedService.requestedDate(), requestedService.quantity());
+    }
 }
