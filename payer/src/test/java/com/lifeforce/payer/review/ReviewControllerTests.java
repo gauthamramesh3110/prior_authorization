@@ -10,42 +10,70 @@ import com.lifeforce.payer.request.dto.ClinicalJustification;
 import com.lifeforce.payer.request.dto.RequestedService;
 import com.lifeforce.payer.review.controller.ReviewController;
 import com.lifeforce.payer.review.domain.ReviewStatus;
+import com.lifeforce.payer.review.domain.Decision;
+import com.lifeforce.payer.review.domain.DecisionActor;
+import com.lifeforce.payer.review.dto.ManualDecisionRequest;
+import com.lifeforce.payer.review.dto.ReviewDecisionResponse;
+import com.lifeforce.payer.review.service.ReviewDecisionService;
 import com.lifeforce.payer.review.dto.ReviewDetails;
 import com.lifeforce.payer.review.dto.ReviewSummary;
 import com.lifeforce.payer.review.service.ReviewQueryService;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.validation.beanvalidation.LocalValidatorFactoryBean;
+import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.ObjectMapper;
+import tools.jackson.databind.node.ObjectNode;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 import static org.hamcrest.Matchers.nullValue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @ExtendWith(MockitoExtension.class)
 class ReviewControllerTests {
     @Mock ReviewQueryService reviewQueryService;
+    @Mock ReviewDecisionService reviewDecisionService;
+    LocalValidatorFactoryBean validator;
     MockMvc mockMvc;
+    UUID reviewerId = UUID.randomUUID();
     UUID reviewId = UUID.randomUUID();
     UUID requestId = UUID.randomUUID();
     Instant submittedAt = Instant.parse("2019-06-01T00:00:00Z");
 
     @BeforeEach
     void createController() {
-        mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(reviewQueryService)).build();
+        validator = new LocalValidatorFactoryBean();
+        validator.afterPropertiesSet();
+        mockMvc = MockMvcBuilders.standaloneSetup(new ReviewController(reviewQueryService, reviewDecisionService))
+                .setValidator(validator).build();
+    }
+
+    @AfterEach
+    void closeValidator() {
+        validator.close();
     }
 
     @Test
@@ -135,6 +163,146 @@ class ReviewControllerTests {
         mockMvc.perform(get("/api/v1/reviews/not-a-uuid"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(reviewQueryService);
+    }
+
+    @Test
+    void submitsManualApprovalAndReturnsDecision() throws Exception {
+        when(reviewDecisionService.submitManualDecision(eq(reviewId), any())).thenReturn(decisionResponse(Decision.APPROVED));
+
+        mockMvc.perform(post("/api/v1/reviews/{id}/decision", reviewId)
+                        .contentType(MediaType.APPLICATION_JSON).content(decisionBody()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(reviewId.toString()))
+                .andExpect(jsonPath("$.requestId").value(requestId.toString()))
+                .andExpect(jsonPath("$.reviewStatus").value("DECIDED"))
+                .andExpect(jsonPath("$.requestStatus").value("APPROVED"))
+                .andExpect(jsonPath("$.requestStatusReason").value("MANUAL_APPROVED"))
+                .andExpect(jsonPath("$.decision").value("APPROVED"))
+                .andExpect(jsonPath("$.decisionReason").value("Clinical review completed"))
+                .andExpect(jsonPath("$.decidedBy").value("REVIEWER"))
+                .andExpect(jsonPath("$.reviewerId").value(reviewerId.toString()))
+                .andExpect(jsonPath("$.approvedQuantity").value(3))
+                .andExpect(jsonPath("$.decisionDate").value(submittedAt.toString()))
+                .andExpect(jsonPath("$.validFrom").value(submittedAt.toString()))
+                .andExpect(jsonPath("$.validTo").value(submittedAt.plus(30, ChronoUnit.DAYS).toString()));
+        ArgumentCaptor<ManualDecisionRequest> request = ArgumentCaptor.forClass(ManualDecisionRequest.class);
+        verify(reviewDecisionService).submitManualDecision(eq(reviewId), request.capture());
+        assertEquals(reviewerId, request.getValue().reviewerId());
+        assertEquals(Decision.APPROVED, request.getValue().decision());
+        assertEquals("Clinical review completed", request.getValue().decisionReason());
+        assertEquals(3, request.getValue().approvedQuantity());
+        verifyNoInteractions(reviewQueryService);
+    }
+
+    @Test
+    void submitsManualRejectionWithoutApprovedQuantity() throws Exception {
+        when(reviewDecisionService.submitManualDecision(eq(reviewId), any())).thenReturn(decisionResponse(Decision.REJECTED));
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(decisionBody());
+        body.put("decision", "REJECTED");
+        body.remove("approvedQuantity");
+
+        mockMvc.perform(post("/api/v1/reviews/{id}/decision", reviewId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body.toString()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.requestStatus").value("REJECTED"))
+                .andExpect(jsonPath("$.requestStatusReason").value("MANUAL_REJECTED"))
+                .andExpect(jsonPath("$.decision").value("REJECTED"))
+                .andExpect(jsonPath("$.approvedQuantity").value(nullValue()))
+                .andExpect(jsonPath("$.validFrom").value(nullValue()))
+                .andExpect(jsonPath("$.validTo").value(nullValue()));
+        ArgumentCaptor<ManualDecisionRequest> request = ArgumentCaptor.forClass(ManualDecisionRequest.class);
+        verify(reviewDecisionService).submitManualDecision(eq(reviewId), request.capture());
+        assertEquals(Decision.REJECTED, request.getValue().decision());
+        assertEquals(null, request.getValue().approvedQuantity());
+        verifyNoInteractions(reviewQueryService);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"reviewerId", "decision", "decisionReason"})
+    void rejectsMissingDecisionFieldsBeforeCallingService(String field) throws Exception {
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(decisionBody());
+        body.putNull(field);
+
+        assertInvalidDecisionBody(body.toString());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", "   "})
+    void rejectsBlankDecisionReasonBeforeCallingService(String reason) throws Exception {
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(decisionBody());
+        body.put("decisionReason", reason);
+
+        assertInvalidDecisionBody(body.toString());
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, -1})
+    void rejectsNonPositiveQuantityBeforeCallingService(int quantity) throws Exception {
+        ObjectNode body = (ObjectNode) new ObjectMapper().readTree(decisionBody());
+        body.put("approvedQuantity", quantity);
+
+        assertInvalidDecisionBody(body.toString());
+    }
+
+    @Test
+    void rejectsUnknownDecisionBeforeCallingService() throws Exception {
+        assertInvalidDecisionBody(decisionBody().replace("APPROVED", "UNKNOWN"));
+    }
+
+    @Test
+    void rejectsInvalidReviewerIdBeforeCallingService() throws Exception {
+        assertInvalidDecisionBody(decisionBody().replace(reviewerId.toString(), "not-a-uuid"));
+    }
+
+    @Test
+    void rejectsMalformedDecisionJsonBeforeCallingService() throws Exception {
+        assertInvalidDecisionBody("{");
+    }
+
+    @Test
+    void rejectsInvalidReviewIdForDecisionBeforeCallingService() throws Exception {
+        mockMvc.perform(post("/api/v1/reviews/not-a-uuid/decision")
+                        .contentType(MediaType.APPLICATION_JSON).content(decisionBody()))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(reviewDecisionService, reviewQueryService);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = HttpStatus.class, names = {"BAD_REQUEST", "NOT_FOUND", "CONFLICT"})
+    void returnsServiceFailureStatusForManualDecision(HttpStatus failureStatus) throws Exception {
+        when(reviewDecisionService.submitManualDecision(eq(reviewId), any()))
+                .thenThrow(new ResponseStatusException(failureStatus, "Decision could not be submitted"));
+
+        mockMvc.perform(post("/api/v1/reviews/{id}/decision", reviewId)
+                        .contentType(MediaType.APPLICATION_JSON).content(decisionBody()))
+                .andExpect(status().is(failureStatus.value()));
+        verify(reviewDecisionService).submitManualDecision(eq(reviewId), any());
+        verifyNoInteractions(reviewQueryService);
+    }
+
+    void assertInvalidDecisionBody(String body) throws Exception {
+        mockMvc.perform(post("/api/v1/reviews/{id}/decision", reviewId)
+                        .contentType(MediaType.APPLICATION_JSON).content(body))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(reviewDecisionService, reviewQueryService);
+    }
+
+    String decisionBody() {
+        return """
+                {"reviewerId":"%s","decision":"APPROVED","decisionReason":"Clinical review completed","approvedQuantity":3}
+                """.formatted(reviewerId);
+    }
+
+    ReviewDecisionResponse decisionResponse(Decision decision) {
+        boolean approved = decision == Decision.APPROVED;
+        return new ReviewDecisionResponse(
+                reviewId, requestId, ReviewStatus.DECIDED,
+                approved ? RequestStatus.APPROVED : RequestStatus.REJECTED,
+                approved ? RequestStatusReason.MANUAL_APPROVED : RequestStatusReason.MANUAL_REJECTED,
+                decision, "Clinical review completed", submittedAt, DecisionActor.REVIEWER, reviewerId,
+                approved ? 3 : null, approved ? submittedAt : null,
+                approved ? submittedAt.plus(30, ChronoUnit.DAYS) : null
+        );
     }
 
     ReviewDetails details(ReviewDetails.PolicyDetails policy) {

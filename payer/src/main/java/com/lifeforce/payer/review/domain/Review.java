@@ -92,4 +92,18 @@ public class Review {
         this.validFrom = decisionTime;
         this.validTo = decisionTime.plus(30, ChronoUnit.DAYS);
     }
+
+    public void updateStatusToManuallyDecided(Decision decision, String reason, UUID reviewerId, Integer quantity, Clock clock) {
+        Instant decisionTime = Instant.now(clock);
+        this.reviewStatus = ReviewStatus.DECIDED;
+        this.decision = decision;
+        this.decisionReason = reason;
+        this.reviewerId = reviewerId;
+        this.decidedBy = DecisionActor.REVIEWER;
+        this.decisionDate = decisionTime;
+        this.lastUpdated = decisionTime;
+        this.approvedQuantity = decision == Decision.APPROVED ? quantity : null;
+        this.validFrom = decision == Decision.APPROVED ? decisionTime : null;
+        this.validTo = decision == Decision.APPROVED ? decisionTime.plus(30, ChronoUnit.DAYS) : null;
+    }
 }

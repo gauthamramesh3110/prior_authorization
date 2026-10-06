@@ -1,12 +1,18 @@
 package com.lifeforce.payer.review.controller;
 
 import com.lifeforce.payer.review.domain.ReviewStatus;
+import com.lifeforce.payer.review.dto.ManualDecisionRequest;
+import com.lifeforce.payer.review.dto.ReviewDecisionResponse;
 import com.lifeforce.payer.review.dto.ReviewDetails;
 import com.lifeforce.payer.review.dto.ReviewSummary;
+import com.lifeforce.payer.review.service.ReviewDecisionService;
 import com.lifeforce.payer.review.service.ReviewQueryService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -19,9 +25,11 @@ import java.util.UUID;
 @RequestMapping("/api/v1/reviews")
 public class ReviewController {
     private final ReviewQueryService reviewQueryService;
+    private final ReviewDecisionService reviewDecisionService;
 
-    public ReviewController(ReviewQueryService reviewQueryService) {
+    public ReviewController(ReviewQueryService reviewQueryService, ReviewDecisionService reviewDecisionService) {
         this.reviewQueryService = reviewQueryService;
+        this.reviewDecisionService = reviewDecisionService;
     }
 
     @GetMapping("")
@@ -36,5 +44,10 @@ public class ReviewController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(review.get());
+    }
+
+    @PostMapping("/{id}/decision")
+    public ResponseEntity<ReviewDecisionResponse> submitManualDecision(@PathVariable("id") UUID reviewId, @RequestBody @Valid ManualDecisionRequest request) {
+        return ResponseEntity.ok(reviewDecisionService.submitManualDecision(reviewId, request));
     }
 }
