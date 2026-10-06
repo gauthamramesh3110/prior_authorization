@@ -10,7 +10,9 @@ Evidence service tests mock repositories and check requested items, reviewer his
 
 Evidence submission service tests mock repositories and check provider matching, evidence merging, history additions, manual versus automatic routing, workflow guards, and preservation of original request fields. Submission controller tests use standalone MockMvc with mocked services to check validation and response mapping. Review service tests verify that reevaluation uses the evidence update time while initial reviews retain the original submission cutoff.
 
-Review query service tests mock repositories and check queue summaries and request/policy detail mapping.
+Review query service tests mock repositories and check queue summaries and request/policy detail mapping. History query tests check missing and empty reviews, repository ordering, and preservation of earlier evidence and decision snapshots. History controller tests mock services and check payloads and HTTP responses.
+
+Provider request query tests mock repositories and check provider/status filtering, requests without reviews, batch review association, ownership checks, current evidence, and decision details. Request tracking controller tests use standalone MockMvc with mocked services. Query tests verify that reads do not save requests, reviews, or history.
 
 DTO mapping tests check conversion into domain value objects and compatibility with existing requested-service and clinical-evidence JSON.
 

@@ -13,6 +13,10 @@ public interface AuthorizationRequestRepository extends Repository<Authorization
 
     List<AuthorizationRequest> findByRequestStatus(RequestStatus requestStatus);
 
+    List<AuthorizationRequest> findByProviderIdOrderBySubmittedAtDescIdAsc(UUID providerId);
+
+    List<AuthorizationRequest> findByProviderIdAndRequestStatusOrderBySubmittedAtDescIdAsc(UUID providerId, RequestStatus status);
+
     AuthorizationRequest save(AuthorizationRequest request);
 
     Optional<AuthorizationRequest> findById(UUID id);

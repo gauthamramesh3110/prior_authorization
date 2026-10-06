@@ -7,6 +7,7 @@ import com.lifeforce.payer.request.dto.EvidenceSubmission;
 import com.lifeforce.payer.request.dto.EvidenceSubmissionResponse;
 import com.lifeforce.payer.request.service.AuthorizationRequestService;
 import com.lifeforce.payer.request.service.EvidenceSubmissionService;
+import com.lifeforce.payer.request.service.RequestQueryService;
 import com.lifeforce.payer.review.domain.ReviewStatus;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class EvidenceSubmissionControllerTests {
     @Mock AuthorizationRequestService authorizationRequestService;
     @Mock EvidenceSubmissionService evidenceSubmissionService;
+    @Mock RequestQueryService requestQueryService;
 
     MockMvc mockMvc;
     LocalValidatorFactoryBean validator;
@@ -52,7 +54,7 @@ class EvidenceSubmissionControllerTests {
     void createController() {
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
-        mockMvc = MockMvcBuilders.standaloneSetup(new AuthorizationRequestController(authorizationRequestService, evidenceSubmissionService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new AuthorizationRequestController(authorizationRequestService, evidenceSubmissionService, requestQueryService))
                 .setValidator(validator).build();
     }
 

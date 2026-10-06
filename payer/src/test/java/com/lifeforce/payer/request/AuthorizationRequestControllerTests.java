@@ -6,6 +6,7 @@ import com.lifeforce.payer.request.dto.HttpAuthorizationResponse;
 import com.lifeforce.payer.request.dto.ResponseStatus;
 import com.lifeforce.payer.request.service.AuthorizationRequestService;
 import com.lifeforce.payer.request.service.EvidenceSubmissionService;
+import com.lifeforce.payer.request.service.RequestQueryService;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -37,6 +38,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class AuthorizationRequestControllerTests {
     @Mock AuthorizationRequestService authorizationRequestService;
     @Mock EvidenceSubmissionService evidenceSubmissionService;
+    @Mock RequestQueryService requestQueryService;
     MockMvc mockMvc;
     LocalValidatorFactoryBean validator;
     UUID requestId = UUID.randomUUID();
@@ -45,7 +47,7 @@ class AuthorizationRequestControllerTests {
     void createController() {
         validator = new LocalValidatorFactoryBean();
         validator.afterPropertiesSet();
-        mockMvc = MockMvcBuilders.standaloneSetup(new AuthorizationRequestController(authorizationRequestService, evidenceSubmissionService))
+        mockMvc = MockMvcBuilders.standaloneSetup(new AuthorizationRequestController(authorizationRequestService, evidenceSubmissionService, requestQueryService))
                 .setValidator(validator).build();
     }
 

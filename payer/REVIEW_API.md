@@ -144,3 +144,18 @@ The request, review, and history are saved in one transaction. History has sourc
 A successful call returns `200 OK` with `id` (history event ID), `requestId`, `reviewId`, `providerId`, `reviewStatus`, `requestStatus`, `requestStatusReason`, and `evidenceUpdatedAt`. Updated combined evidence is available through review details.
 
 An unknown authorization request returns `404 Not Found`. A provider mismatch returns `403 Forbidden`. A request without a review, a review outside `AWAITING_EVIDENCE`, or a request that is no longer pending returns `409 Conflict`. A repeated submission also returns `409` until the review requests evidence again. Invalid or empty evidence returns `400 Bad Request`.
+
+
+## Review history
+
+```http
+GET /api/v1/reviews/{id}/history
+```
+
+Returns the stored history events for a review in any status, ordered by `eventAt` ascending and then event `id` ascending when timestamps match. Each entry contains `id`, `reviewId`, `eventSource`, `eventType`, `eventAt`, and `eventPayload`.
+
+The payload is the original event snapshot. It can contain request/review statuses, decision details, reviewer identity, quantities, and validity dates. `EVIDENCE_REQUESTED` events also contain `message` and `requestedEvidence`. `UPDATED_EVIDENCE` events contain `providerId` and `clinicalJustification` with only the additions from that submission. Reading history does not reconstruct or overwrite snapshots using current request state.
+
+An existing review without events returns `200 OK` with `[]`. An unknown review returns `404 Not Found`. An invalid review UUID returns `400 Bad Request`. The endpoint leaves workflow state and history unchanged.
+
+Providers can use the review ID returned by the [request tracking APIs](REQUEST_API.md) to read evidence-request messages and the rest of the review timeline.

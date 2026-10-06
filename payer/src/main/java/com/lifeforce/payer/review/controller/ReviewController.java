@@ -6,6 +6,7 @@ import com.lifeforce.payer.review.dto.EvidenceRequestResponse;
 import com.lifeforce.payer.review.dto.ManualDecisionRequest;
 import com.lifeforce.payer.review.dto.ReviewDecisionResponse;
 import com.lifeforce.payer.review.dto.ReviewDetails;
+import com.lifeforce.payer.review.dto.ReviewHistoryEntry;
 import com.lifeforce.payer.review.dto.ReviewSummary;
 import com.lifeforce.payer.review.service.ReviewDecisionService;
 import com.lifeforce.payer.review.service.ReviewQueryService;
@@ -49,6 +50,15 @@ public class ReviewController {
             return ResponseEntity.notFound().build();
         }
         return ResponseEntity.ok(review.get());
+    }
+
+    @GetMapping("/{id}/history")
+    public ResponseEntity<List<ReviewHistoryEntry>> getReviewHistory(@PathVariable("id") UUID reviewId) {
+        Optional<List<ReviewHistoryEntry>> history = reviewQueryService.getReviewHistory(reviewId);
+        if (history.isEmpty()) {
+            return ResponseEntity.notFound().build();
+        }
+        return ResponseEntity.ok(history.get());
     }
 
     @PostMapping("/{id}/decision")
