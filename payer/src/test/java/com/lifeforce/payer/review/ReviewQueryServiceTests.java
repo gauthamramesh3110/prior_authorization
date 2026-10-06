@@ -140,6 +140,7 @@ class ReviewQueryServiceTests {
         assertEquals(policy.getPolicyCriteria().getFirst().getId(), criterion.id());
         assertEquals(EvidenceType.OBSERVATION, criterion.evidenceType());
         assertEquals("EF", criterion.code());
+        assertEquals("Left ventricular Ejection fraction", criterion.codeDescription());
         assertEquals(PolicyCriterionOperator.LTE, criterion.operator());
         assertEquals(new BigDecimal("35"), criterion.value());
         assertEquals("%", criterion.unit());
@@ -246,6 +247,7 @@ class ReviewQueryServiceTests {
         ReflectionTestUtils.setField(criterion, "id", UUID.randomUUID());
         ReflectionTestUtils.setField(criterion, "evidenceType", EvidenceType.OBSERVATION);
         ReflectionTestUtils.setField(criterion, "code", "EF");
+        ReflectionTestUtils.setField(criterion, "codeDescription", "Left ventricular Ejection fraction");
         ReflectionTestUtils.setField(criterion, "operator", PolicyCriterionOperator.LTE);
         ReflectionTestUtils.setField(criterion, "value", new BigDecimal("35"));
         ReflectionTestUtils.setField(criterion, "unit", "%");

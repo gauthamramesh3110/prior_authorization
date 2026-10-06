@@ -127,7 +127,7 @@ class ReviewControllerTests {
     void returnsReviewDetailsWithEvidenceAndPolicy() throws Exception {
         ReviewDetails.PolicyDetails policy = new ReviewDetails.PolicyDetails(
                 UUID.randomUUID(), ReviewMode.AUTO_APPROVAL_ELIGIBLE, Match.ALL,
-                List.of(new ReviewDetails.CriterionDetails(UUID.randomUUID(), EvidenceType.OBSERVATION, "EF", PolicyCriterionOperator.LTE, new BigDecimal("35"), "%"))
+                List.of(new ReviewDetails.CriterionDetails(UUID.randomUUID(), EvidenceType.OBSERVATION, "EF", "Left ventricular Ejection fraction", PolicyCriterionOperator.LTE, new BigDecimal("35"), "%"))
         );
         when(reviewQueryService.getReviewDetails(reviewId)).thenReturn(Optional.of(details(policy)));
 
@@ -139,6 +139,7 @@ class ReviewControllerTests {
                 .andExpect(jsonPath("$.request.submittedAt").value(submittedAt.toString()))
                 .andExpect(jsonPath("$.request.clinicalJustification.observations[0].value").value(35.1))
                 .andExpect(jsonPath("$.policy.id").value(policy.id().toString()))
+                .andExpect(jsonPath("$.policy.criteria[0].codeDescription").value("Left ventricular Ejection fraction"))
                 .andExpect(jsonPath("$.policy.criteria[0].operator").value("LTE"))
                 .andExpect(jsonPath("$.policy.criteria[0].value").value(35))
                 .andExpect(jsonPath("$.policy.criteria[0].policy").doesNotExist());

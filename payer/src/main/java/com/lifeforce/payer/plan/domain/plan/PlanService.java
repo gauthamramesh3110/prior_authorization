@@ -17,6 +17,8 @@ public class PlanService {
 
     private String code;
 
+    private String codeDescription;
+
     @Enumerated(EnumType.STRING)
     private CodeType codeType;
 

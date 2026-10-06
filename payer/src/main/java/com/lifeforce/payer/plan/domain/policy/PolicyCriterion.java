@@ -17,6 +17,8 @@ public class PolicyCriterion {
 
     private String code;
 
+    private String codeDescription;
+
     @Enumerated(EnumType.STRING)
     private PolicyCriterionOperator operator;
 

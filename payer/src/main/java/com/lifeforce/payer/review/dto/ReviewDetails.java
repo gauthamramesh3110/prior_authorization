@@ -87,13 +87,14 @@ public record ReviewDetails(
             UUID id,
             EvidenceType evidenceType,
             String code,
+            String codeDescription,
             PolicyCriterionOperator operator,
             BigDecimal value,
             String unit
     ) {
         public static CriterionDetails from(PolicyCriterion criterion) {
             return new CriterionDetails(
-                    criterion.getId(), criterion.getEvidenceType(), criterion.getCode(),
+                    criterion.getId(), criterion.getEvidenceType(), criterion.getCode(), criterion.getCodeDescription(),
                     criterion.getOperator(), criterion.getValue(), criterion.getUnit()
             );
         }
