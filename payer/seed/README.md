@@ -1,10 +1,10 @@
 # Curated payer seed
 
-Review the JSON files in `data/`, then run `seed.py` after Flyway migrations V1-V7. Plans contain their `plan_services`, and policies contain their `criteria`. Other files contain arrays of database rows. Keys use database column names, including `code_description`; the Java objects and review-details API use `codeDescription`.
+Review the JSON files in `data/`, then run `seed.py` after Flyway migrations V1-V9. Plans contain their `plan_services`, and policies contain their `criteria`. Other files contain arrays of database rows. Keys use database column names, including `code_description`; the Java objects and review-details API use `codeDescription`.
 
-The script reads the rows and writes them in one transaction. It only unpacks nested services and criteria and adds their parent IDs. UUIDs, dates, codes, descriptions, and thresholds are explicit in JSON. It does not generate clinical evidence or transform raw data during ingestion. A failure rolls back the transaction. Authorization requests and reviews are created through the application.
+The script truncates all tables in the payer database's public schema except flyway_schema_history, then inserts the seed rows in the same transaction. Existing reference data, authorization requests, reviews, and vector embeddings are deleted on a successful run. Owned sequences are reset. Flyway history, schema definitions, and extensions are preserved. It only unpacks nested services and criteria and adds their parent IDs. UUIDs, dates, codes, descriptions, and thresholds are explicit in JSON. It does not generate clinical evidence or transform raw data during ingestion. A failure rolls back both the truncation and the seed inserts, restoring the previous data. Authorization requests and reviews are created through the application.
 
-From the repository root, with the database running:
+Stop the payer application before reseeding so its schedulers cannot write during the reset. Referenced policy documents are validated before the reset transaction begins. From the repository root, with the database running:
 
 ```powershell
 python -m pip install -r payer/seed/requirements.txt
@@ -27,15 +27,15 @@ python payer/seed/seed.py
 | `data/patient.json` | Ten patients |
 | `data/coverage.json` | Patient enrollment periods |
 | `data/network_participation.json` | Organization network agreements |
-| `data/policy.json` | Policies and their criteria |
+| `data/policy.json` | Policies, document filenames, ingestion statuses, and criteria |
 
 Child rows omit `plan_id` or `policy_id` because their parent supplies it. Their own IDs remain explicit. JSON values are passed as query parameters; [Psycopg](https://www.psycopg.org/psycopg3/docs/basic/usage.html) handles database communication and the transaction.
 
-Rerunning upserts reference rows and services and replaces criteria for the policy IDs in `policy.json`. This removes obsolete criteria from the earlier seed and keeps each policy consistent with its JSON. Existing authorization requests, reviews, and unrelated policies are preserved. Removing other rows from JSON does not delete them from the database. A fresh migrated database gives exactly the counts below.
+Every successful run starts from empty application tables, so removing rows from JSON also removes them from the reseeded database. Requests and reviews remain empty until recreated through the application. Restart the payer application after seeding to ingest the policy documents again. The seed gives exactly the counts below.
 
 ## Dataset
 
-The fictional PPO setup contains 10 patients, one payer, one plan, three organizations, three ordering providers, nine coverages, three network agreements, six policies, eight criteria, and nine plan services. Conditions and observations belong in API request bodies because the current schema stores clinical evidence on authorization requests.
+The fictional PPO setup contains 10 patients, one payer, one plan, three organizations, three ordering providers, nine coverages, three network agreements, six policies, six criteria, and nine plan services. Conditions and observations belong in API request bodies because the current schema stores clinical evidence on authorization requests.
 
 The dates are fixed in 2026 so you can reproduce cutoff and boundary cases. Seven patients have active coverage for ordinary scenarios. Liam has terminated coverage, Ava has future enrollment, and Lucas has no enrollment. Daniel has open-ended coverage. Riverside is in network, North Valley has a March-June contract, and Lakeview is explicitly out of network.
 
@@ -84,7 +84,7 @@ Synthea contains clinical data rather than payer policies. Harbor Choice's cover
 | --- | --- | --- |
 | 73761001 | Colonoscopy | Covered, no prior authorization |
 | 698354004 | Magnetic resonance imaging for measurement of brain volume (procedure) | Excluded benefit under this plan |
-| 312681000 | Bone density scan (procedure) | Policy 1: ANY osteoporosis 64859006 or pathological fracture due to osteoporosis 443165006 |
+| 312681000 | Bone density scan (procedure) | Policy 1: manual clinical review against HHI-MP-001; screening, diagnostic, and monitoring routes |
 | 447365002 | Insertion of biventricular implantable cardioverter defibrillator | Policy 2: ALL chronic congestive heart failure 88805009 and left ventricular ejection fraction 10230-1 <= 35% |
 | 232717009 | Coronary artery bypass grafting | Policy 3: manual review of surgical indications and supporting reports |
 | 274031008 | Rectal polypectomy | Policy 4: criteria awaiting configuration; manual fallback |
@@ -137,7 +137,7 @@ Use `POST /api/v1/requests`. Replace `requestId` with a new UUID. This cardiac e
 }
 ```
 
-For routine, excluded, unlisted, or manual services, a clinical justification with a summary and empty conditions/observations is sufficient. For bone density, use either qualifying condition. For spirometry, use `19926-5` (FEV1/FVC) or `2708-6` (oxygen saturation), both with units `%` as stored in Synthea.
+For routine, excluded, unlisted, or manual services, a clinical justification with a summary and empty conditions/observations is sufficient. For bone density, submit the facts for a qualifying clinical route in [HHI-MP-001](policy-documents/hhi-mp-001-bone-density-scan.md). The [passing screening request](examples/bone-density-screening-request.json) supplies a complete section 4.A case; osteoporosis and fracture codes are not required for that route. For spirometry, use `19926-5` (FEV1/FVC) or `2708-6` (oxygen saturation), both with units `%` as stored in Synthea.
 
 Wait for the schedulers, then use `GET /api/v1/requests/{id}?providerId=...` to inspect the request and discover its review ID. Reviews receive IDs generated by the application. Use `GET /api/v1/reviews?status=PENDING_MANUAL_REVIEW` for the manual queue and `GET /api/v1/reviews/{id}` for details.
 
@@ -182,9 +182,9 @@ Use the patient and service below, and vary the cardiac example where relevant. 
 | Policy has no configured criteria | 1 | 274031008 | MANUAL_REVIEW_REQUIRED | PENDING_MANUAL_REVIEW |
 | Service has no assigned policy | 2 | 241615005 | MANUAL_REVIEW_REQUIRED | PENDING_MANUAL_REVIEW |
 | Unsupported criterion overrides a matched ANY criterion | 6 | 433236007 | MANUAL_REVIEW_REQUIRED | PENDING_MANUAL_REVIEW |
-| ANY policy matches osteoporosis | 1 | 312681000 | AUTO_APPROVED | DECIDED |
-| ANY policy matches the alternative diagnosis | 1 | 312681000 | AUTO_APPROVED | DECIDED |
-| ANY policy has neither qualifying diagnosis | 2 | 312681000 | AWAITING_EVIDENCE | AWAITING_EVIDENCE |
+| Bone density with established osteoporosis | 1 | 312681000 | MANUAL_REVIEW_REQUIRED | PENDING_MANUAL_REVIEW |
+| Bone density with an osteoporosis-related fracture | 1 | 312681000 | MANUAL_REVIEW_REQUIRED | PENDING_MANUAL_REVIEW |
+| Bone density screening or another clinical route without either diagnosis | 1 | 312681000 | MANUAL_REVIEW_REQUIRED | PENDING_MANUAL_REVIEW |
 | ALL failure takes precedence over missing evidence | 4 | 447365002 | CRITERIA_NOT_MET | PENDING_MANUAL_REVIEW |
 | ANY numeric match takes precedence over missing evidence | 2 | 127783003 | AUTO_APPROVED | DECIDED |
 | ANY oxygen-saturation criterion matches at its LTE boundary | 2 | 127783003 | AUTO_APPROVED | DECIDED |
@@ -227,3 +227,13 @@ Use an existing request UUID for duplicate submission. Unknown reference IDs, mi
 Query with provider 2 or 3 and a status filter they have no requests for to get an empty result. Unknown provider/review/request identifiers and invalid query parameters exercise query errors. Reprocessing a completed request or non-pending review exercises scheduler guards.
 
 Some defensive branches cannot be represented by valid seed rows: a missing plan on an existing request is prevented by the request foreign key; missing policy enums and null clinical justification are prevented by NOT NULL; invalid enum values are not valid entity data. Those remain unit-test scenarios. The seed supports all persisted workflow outcomes and meaningful policy/evidence variations through API calls without creating invalid database records.
+
+## Policy document ingestion
+
+Only bone-density policy 1 references a source file: `hhi-mp-001-bone-density-scan.md`. Its review mode is `MANUAL_REVIEW` and its executable criteria are empty. The expanded clinical routes are evaluated by the reviewer using the document. The other five policies retain their service rules with null document filenames; they are skipped by document ingestion.
+
+Before opening the reset transaction, the loader validates that every non-null policy filename identifies a readable UTF-8 file in `policy-documents`. Missing source files abort the run before existing database contents are reset. The filename and `NOT_INGESTED` status are loaded from `data/policy.json`.
+
+A successful fresh seed clears requests, reviews, and vector rows, reloads six policies and six criteria, and leaves the sole document ready for ingestion. Start the payer application with Ollama running to create its 31 section embeddings. The scheduler uses `payer.scheduler.policy-ingestion-delay` (5000 milliseconds by default), marks successful ingestion as `INGESTED`, and retries failures on later runs.
+
+Use the [passing bone-density request](examples/bone-density-screening-request.json) with the [Postman pre-request script](examples/bone-density-screening-pre-request.js). Its expected application status is `PENDING_MANUAL_REVIEW`, even though the clinical facts support the screening route. No automated approval or human decision is generated by the seed script.

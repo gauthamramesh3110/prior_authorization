@@ -1,33 +1,18 @@
 [
   {
     "id": "70000000-0000-4000-8000-000000000001",
-    "review_mode": "AUTO_APPROVAL_ELIGIBLE",
+    "review_mode": "MANUAL_REVIEW",
     "match": "ANY",
-    "criteria": [
-      {
-        "id": "b0000000-0000-4000-8000-000000000001",
-        "evidence_type": "CONDITION",
-        "code": "64859006",
-        "code_description": "Osteoporosis (disorder)",
-        "operator": "PRESENT",
-        "value": null,
-        "unit": null
-      },
-      {
-        "id": "b0000000-0000-4000-8000-000000000002",
-        "evidence_type": "CONDITION",
-        "code": "443165006",
-        "code_description": "Pathological fracture due to osteoporosis (disorder)",
-        "operator": "PRESENT",
-        "value": null,
-        "unit": null
-      }
-    ]
+    "source_file_name": "hhi-mp-001-bone-density-scan.md",
+    "ingestion_status": "NOT_INGESTED",
+    "criteria": []
   },
   {
     "id": "70000000-0000-4000-8000-000000000002",
     "review_mode": "AUTO_APPROVAL_ELIGIBLE",
     "match": "ALL",
+    "source_file_name": null,
+    "ingestion_status": "NOT_INGESTED",
     "criteria": [
       {
         "id": "b0000000-0000-4000-8000-000000000003",
@@ -53,18 +38,24 @@
     "id": "70000000-0000-4000-8000-000000000003",
     "review_mode": "MANUAL_REVIEW",
     "match": "ALL",
+    "source_file_name": null,
+    "ingestion_status": "NOT_INGESTED",
     "criteria": []
   },
   {
     "id": "70000000-0000-4000-8000-000000000004",
     "review_mode": "AUTO_APPROVAL_ELIGIBLE",
     "match": "ALL",
+    "source_file_name": null,
+    "ingestion_status": "NOT_INGESTED",
     "criteria": []
   },
   {
     "id": "70000000-0000-4000-8000-000000000005",
     "review_mode": "AUTO_APPROVAL_ELIGIBLE",
     "match": "ANY",
+    "source_file_name": null,
+    "ingestion_status": "NOT_INGESTED",
     "criteria": [
       {
         "id": "b0000000-0000-4000-8000-000000000010",
@@ -90,6 +81,8 @@
     "id": "70000000-0000-4000-8000-000000000006",
     "review_mode": "AUTO_APPROVAL_ELIGIBLE",
     "match": "ANY",
+    "source_file_name": null,
+    "ingestion_status": "NOT_INGESTED",
     "criteria": [
       {
         "id": "b0000000-0000-4000-8000-000000000012",
