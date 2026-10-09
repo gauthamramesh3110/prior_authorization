@@ -26,7 +26,8 @@ spring:
         pull-model-strategy: never
       chat:
         model: llama3.2:3b
-        temperature: 0.1
+        temperature: 0.0
+        seed: 42
         num-ctx: 8192
         num-predict: 1024
       embedding:

@@ -1,4 +1,4 @@
-package com.lifeforce.payer.review.controller;
+package com.lifeforce.payer.assistant.controller;
 
 import com.lifeforce.payer.assistant.service.ReviewerAssistantService;
 import com.lifeforce.payer.review.dto.ReviewDetails;
