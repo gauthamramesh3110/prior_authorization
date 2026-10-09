@@ -16,6 +16,27 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  ai:
+    model:
+      chat: ollama
+      embedding: ollama
+    ollama:
+      base-url: http://localhost:11434
+      init:
+        pull-model-strategy: never
+      chat:
+        model: llama3.2:3b
+        temperature: 0.1
+        num-ctx: 8192
+        num-predict: 1024
+      embedding:
+        model: nomic-embed-text:v1.5
+        truncate: false
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        index-type: NONE
+        distance-type: COSINE_DISTANCE
 
 server:
   port: 8082
@@ -24,6 +45,10 @@ logging:
   level:
     org.flywaydb: INFO
 
-scheduler:
-  request-delay: 5000
-  review-delay: 5000
+payer:
+  policy-documents:
+    base-directory: ./payer/seed/policy-documents
+  scheduler:
+    request-delay: 5000
+    review-delay: 5000
+    policy-ingestion-delay: 5000

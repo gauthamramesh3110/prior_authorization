@@ -18,6 +18,15 @@ public class Policy {
     @Enumerated(EnumType.STRING)
     Match match;
 
+    String sourceFileName;
+
+    @Enumerated(EnumType.STRING)
+    IngestionStatus ingestionStatus;
+
     @OneToMany(mappedBy = "policy")
     private List<PolicyCriterion> policyCriteria;
+
+    public void markAsIngested() {
+        this.ingestionStatus = IngestionStatus.INGESTED;
+    }
 }

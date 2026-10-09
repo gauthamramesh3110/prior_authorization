@@ -1,10 +1,10 @@
 # Curated payer seed
 
-Review the JSON files in `data/`, then run `seed.py` after Flyway migrations V1-V7. Plans contain their `plan_services`, and policies contain their `criteria`. Other files contain arrays of database rows. Keys use database column names, including `code_description`; the Java objects and review-details API use `codeDescription`.
+Review the JSON files in `data/`, then run `seed.py` after Flyway migrations V1-V9. Plans contain their `plan_services`, and policies contain their `criteria`. Other files contain arrays of database rows. Keys use database column names, including `code_description`; the Java objects and review-details API use `codeDescription`.
 
-The script reads the rows and writes them in one transaction. It only unpacks nested services and criteria and adds their parent IDs. UUIDs, dates, codes, descriptions, and thresholds are explicit in JSON. It does not generate clinical evidence or transform raw data during ingestion. A failure rolls back the transaction. Authorization requests and reviews are created through the application.
+The script truncates all tables in the payer database's public schema except flyway_schema_history, then inserts the seed rows in the same transaction. Existing reference data, authorization requests, reviews, and vector embeddings are deleted on a successful run. Owned sequences are reset. Flyway history, schema definitions, and extensions are preserved. It only unpacks nested services and criteria and adds their parent IDs. UUIDs, dates, codes, descriptions, and thresholds are explicit in JSON. It does not generate clinical evidence or transform raw data during ingestion. A failure rolls back both the truncation and the seed inserts, restoring the previous data. Authorization requests and reviews are created through the application.
 
-From the repository root, with the database running:
+Stop the payer application before reseeding so its schedulers cannot write during the reset. From the repository root, with the database running:
 
 ```powershell
 python -m pip install -r payer/seed/requirements.txt
@@ -27,11 +27,11 @@ python payer/seed/seed.py
 | `data/patient.json` | Ten patients |
 | `data/coverage.json` | Patient enrollment periods |
 | `data/network_participation.json` | Organization network agreements |
-| `data/policy.json` | Policies and their criteria |
+| `data/policy.json` | Policies, document filenames, ingestion statuses, and criteria |
 
 Child rows omit `plan_id` or `policy_id` because their parent supplies it. Their own IDs remain explicit. JSON values are passed as query parameters; [Psycopg](https://www.psycopg.org/psycopg3/docs/basic/usage.html) handles database communication and the transaction.
 
-Rerunning upserts reference rows and services and replaces criteria for the policy IDs in `policy.json`. This removes obsolete criteria from the earlier seed and keeps each policy consistent with its JSON. Existing authorization requests, reviews, and unrelated policies are preserved. Removing other rows from JSON does not delete them from the database. A fresh migrated database gives exactly the counts below.
+Every successful run starts from empty application tables, so removing rows from JSON also removes them from the reseeded database. Requests and reviews remain empty until recreated through the application. Restart the payer application after seeding to ingest the policy documents again. The seed gives exactly the counts below.
 
 ## Dataset
 
@@ -227,3 +227,15 @@ Use an existing request UUID for duplicate submission. Unknown reference IDs, mi
 Query with provider 2 or 3 and a status filter they have no requests for to get an empty result. Unknown provider/review/request identifiers and invalid query parameters exercise query errors. Reprocessing a completed request or non-pending review exercises scheduler guards.
 
 Some defensive branches cannot be represented by valid seed rows: a missing plan on an existing request is prevented by the request foreign key; missing policy enums and null clinical justification are prevented by NOT NULL; invalid enum values are not valid entity data. Those remain unit-test scenarios. The seed supports all persisted workflow outcomes and meaningful policy/evidence variations through API calls without creating invalid database records.
+
+## Policy document ingestion
+
+Each policy explicitly includes source_file_name and ingestion_status in data/policy.json. The existing generic loader inserts and updates both fields. Filenames resolve against payer.policy-documents.base-directory in application.yaml. All six policies start as NOT_INGESTED. Rerunning the seed resets them to NOT_INGESTED and schedules reingestion; existing vector rows are cleared by the reset.
+
+The policy ingestion scheduler uses payer.scheduler.policy-ingestion-delay (5000 milliseconds by default) for both its initial delay and fixed delay between completed runs. It queries NOT_INGESTED policies in ID order and continues after individual failures. Successfully ingested policies are skipped on later runs. Failed policies remain pending and are retried on the next run.
+
+Run the seed loader unit tests without connecting to PostgreSQL:
+
+```powershell
+python -m unittest discover -s payer/seed -p test_seed.py
+```

@@ -38,12 +38,28 @@ def ingest_rows(cursor, table_name, rows):
     cursor.executemany(statement, [[row[column] for column in columns] for row in rows])
 
 
+def truncate_tables(cursor):
+    cursor.execute(
+        "SELECT schemaname, tablename FROM pg_catalog.pg_tables "
+        "WHERE schemaname = %s AND tablename <> %s ORDER BY tablename",
+        ("public", "flyway_schema_history"),
+    )
+    tables = cursor.fetchall()
+    if tables:
+        cursor.execute(
+            sql.SQL("TRUNCATE TABLE {} RESTART IDENTITY").format(
+                sql.SQL(", ").join(sql.Identifier(schema, table) for schema, table in tables)
+            )
+        )
+
+
 def main():
     database_url = os.environ.get(
         "PAYER_DATABASE_URL", "postgresql://payer:payer@localhost:5434/payer_db"
     )
     with psycopg.connect(database_url) as connection:
         with connection.cursor() as cursor:
+            truncate_tables(cursor)
             ingest_rows(cursor, "payer", read_rows("payer"))
             plan_services = []
             for plan in read_rows("plan"):
@@ -57,14 +73,13 @@ def main():
             for policy in read_rows("policy"):
                 criteria = policy.pop("criteria")
                 ingest_rows(cursor, "policy", [policy])
-                cursor.execute("DELETE FROM policy_criterion WHERE policy_id = %s", [policy["id"]])
                 for criterion in criteria:
                     criterion["policy_id"] = policy["id"]
                 if criteria:
                     ingest_rows(cursor, "policy_criterion", criteria)
             if plan_services:
                 ingest_rows(cursor, "plan_service", plan_services)
-    print("Seed data ingested.")
+    print("Payer tables reset and seed data ingested.")
 
 
 if __name__ == "__main__":
