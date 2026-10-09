@@ -30,8 +30,17 @@ public class ReviewerAssistantService {
     }
 
     public AssistantSummary summarize(ReviewDetails review) {
-        String query = objectMapper.writeValueAsString(review.request().requestedService())
-                + "\n" + objectMapper.writeValueAsString(review.request().clinicalJustification());
+        String query = """
+                For %s, what does this prior-authorization
+                policy specify about clinical criteria, indications, and individual
+                manual review?
+
+                What clinical findings, treatment history, and treating-team rationale
+                should the reviewer assess?
+
+                What supporting documentation is needed, and when should the reviewer
+                request additional evidence or clarification?
+                """.formatted(review.request().requestedService().description()).strip();
 
         String reviewJson = objectMapper.writeValueAsString(review);
         logger.info("Review {} retrieval query:\nsearch_query: {}", review.id(), query);
