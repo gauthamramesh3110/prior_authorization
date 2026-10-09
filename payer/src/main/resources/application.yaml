@@ -25,7 +25,7 @@ spring:
       init:
         pull-model-strategy: never
       chat:
-        model: llama3.2:3b
+        model: phi4-mini
         temperature: 0.0
         seed: 42
         num-ctx: 8192

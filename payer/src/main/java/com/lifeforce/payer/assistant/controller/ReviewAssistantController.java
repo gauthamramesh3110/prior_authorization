@@ -10,7 +10,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -30,9 +29,9 @@ public class ReviewAssistantController {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Review does not exist"));
 
         var result = assistantService.summarize(details);
-        return new AssistantSummaryResponse(reviewId, result.summary(), result.referencePassages());
+        return new AssistantSummaryResponse(reviewId, result.summary());
     }
 
-    public record AssistantSummaryResponse(UUID reviewId, String summary,
-            List<ReviewerAssistantService.ReferencePassage> referencePassages) {}
+    public record AssistantSummaryResponse(UUID reviewId, String summary) {
+    }
 }
